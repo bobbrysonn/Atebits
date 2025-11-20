@@ -13,10 +13,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Create
+import androidx.compose.material.icons.outlined.IosShare
+import androidx.compose.material.icons.outlined.ModeComment
+import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -26,7 +26,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -54,7 +53,7 @@ fun PostItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(start = 12.dp, top = 12.dp, end = 12.dp)
             .clickable { onTweetClick(tweet) },
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
@@ -62,8 +61,9 @@ fun PostItem(
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                // Profile picture
                 AsyncImage(
                     model = user?.profileImageUrlHttps,
                     contentDescription = "Profile Picture",
@@ -72,13 +72,17 @@ fun PostItem(
                         .clip(CircleShape),
                     contentScale = ContentScale.Crop
                 )
+
                 Spacer(modifier = Modifier.width(12.dp))
+
+                // Name, username, time posted
                 Column {
                     Text(
                         text = user?.name ?: "Unknown",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onSurface
                     )
+
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -126,16 +130,16 @@ fun PostItem(
             Spacer(modifier = Modifier.height(16.dp))
 
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 TweetAction(
-                    icon = Icons.Outlined.Create,
+                    icon = Icons.Outlined.ModeComment,
                     count = tweetContent?.replyCount ?: 0,
                     contentDescription = "Replies"
                 )
                 TweetAction(
-                    icon = Icons.Outlined.Share,
+                    icon = Icons.Outlined.Repeat,
                     count = tweetContent?.retweetCount ?: 0,
                     contentDescription = "Retweets"
                 )
@@ -145,7 +149,7 @@ fun PostItem(
                     contentDescription = "Likes"
                 )
                 TweetAction(
-                    icon = Icons.Outlined.Share,
+                    icon = Icons.Outlined.IosShare,
                     count = null,
                     contentDescription = "Share"
                 )

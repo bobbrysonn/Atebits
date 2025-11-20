@@ -1,8 +1,10 @@
 package dev.bobbrysonn.atebits.ui.screens.home
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -29,13 +31,16 @@ import dev.bobbrysonn.atebits.ui.screens.ImageViewerScreen
 import kotlinx.coroutines.launch
 
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.ui.Alignment
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun HomeScreen(
     modifier: Modifier = Modifier,
@@ -63,7 +68,7 @@ fun HomeScreen(
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            TabRow(selectedTabIndex = state) {
+            PrimaryTabRow(selectedTabIndex = state) {
                 titles.forEachIndexed { index, title ->
                     Tab(
                         selected = state == index,
@@ -80,10 +85,13 @@ fun HomeScreen(
                     modifier = Modifier.padding(16.dp)
                 )
             } else if (viewModel.isLoading && viewModel.tweets.isEmpty()) {
-                 Text(
-                    text = "Loading...",
-                    modifier = Modifier.padding(16.dp)
-                )
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    LoadingIndicator()
+                }
             } else {
                 PullToRefreshBox(
                     isRefreshing = viewModel.isRefreshing,
