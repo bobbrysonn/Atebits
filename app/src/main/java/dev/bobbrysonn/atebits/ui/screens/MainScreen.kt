@@ -31,6 +31,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import dev.bobbrysonn.atebits.ui.screens.TweetDetailScreen
+import dev.bobbrysonn.atebits.data.TweetCache
 
 @Composable
 fun MainScreen() {
@@ -101,6 +102,7 @@ fun MainScreen() {
                     onTweetClick = { tweet ->
                         val tweetId = tweet.rest_id ?: tweet.tweet?.rest_id
                         if (tweetId != null) {
+                            TweetCache.put(tweetId, tweet)
                             navController.navigate("tweet/$tweetId")
                         }
                     }
@@ -127,8 +129,10 @@ fun MainScreen() {
             composable("tweet/{tweetId}") { backStackEntry ->
                 val tweetId = backStackEntry.arguments?.getString("tweetId")
                 if (tweetId != null) {
+                    val cachedTweet = TweetCache.get(tweetId)
                     TweetDetailScreen(
                         tweetId = tweetId,
+                        initialTweet = cachedTweet,
                         onBack = { navController.popBackStack() }
                     )
                 }

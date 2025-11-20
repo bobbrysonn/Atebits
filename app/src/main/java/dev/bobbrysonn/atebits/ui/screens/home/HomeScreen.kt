@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import dev.bobbrysonn.atebits.data.AuthRepository
 import dev.bobbrysonn.atebits.data.TimelineRepository
 import dev.bobbrysonn.atebits.data.TweetResult
+import dev.bobbrysonn.atebits.data.TweetCache
 import dev.bobbrysonn.atebits.ui.components.PostItem
 import dev.bobbrysonn.atebits.ui.screens.ImageViewerScreen
 import kotlinx.coroutines.launch

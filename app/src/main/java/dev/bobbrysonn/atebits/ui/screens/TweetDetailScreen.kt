@@ -5,13 +5,23 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -26,28 +36,36 @@ import androidx.compose.ui.unit.dp
 import dev.bobbrysonn.atebits.data.AuthRepository
 import dev.bobbrysonn.atebits.data.TimelineRepository
 import dev.bobbrysonn.atebits.data.TweetResult
+import dev.bobbrysonn.atebits.data.TweetCache
 import dev.bobbrysonn.atebits.ui.components.PostItem
 import kotlinx.coroutines.launch
 
 @Composable
+@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 fun TweetDetailScreen(
     tweetId: String,
+    initialTweet: TweetResult? = null,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
     val authRepository = remember { AuthRepository(context) }
     val timelineRepository = remember { TimelineRepository(authRepository) }
     val coroutineScope = rememberCoroutineScope()
-    var tweets by remember { mutableStateOf<List<TweetResult>>(emptyList()) }
+    var mainTweet by remember { mutableStateOf<TweetResult?>(initialTweet ?: TweetCache.get(tweetId)) }
+    var comments by remember { mutableStateOf<List<TweetResult>>(emptyList()) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var selectedImageUrl by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
 
-    suspend fun fetchTweetDetail() {
+    LaunchedEffect(tweetId) {
         isLoading = true
         errorMessage = null
         try {
-            tweets = timelineRepository.getTweetDetail(tweetId)
+            val detail = timelineRepository.getTweetDetail(tweetId)
+            if (mainTweet == null) {
+                mainTweet = detail.firstOrNull { it.rest_id == tweetId } ?: detail.firstOrNull()
+            }
+            comments = detail.filter { it.rest_id != tweetId }
         } catch (e: Exception) {
             e.printStackTrace()
             errorMessage = e.message ?: "Unknown error"
@@ -56,42 +74,33 @@ fun TweetDetailScreen(
         }
     }
 
-    LaunchedEffect(tweetId) {
-        fetchTweetDetail()
-    }
-
-    Box(modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                text = "Tweet",
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(top = 4.dp)
-            )
-
-            when {
-                isLoading && tweets.isEmpty() -> {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(top = 24.dp),
-                        contentAlignment = Alignment.TopCenter
-                    ) {
-                        CircularProgressIndicator()
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Tweet") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
                     }
-                }
-
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                ),
+                windowInsets = androidx.compose.foundation.layout.WindowInsets(0)
+            )
+        }
+    ) { innerPadding ->
+        Box(Modifier.padding(innerPadding)) {
+            when {
                 errorMessage != null -> {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(top = 24.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
@@ -99,19 +108,57 @@ fun TweetDetailScreen(
                             color = MaterialTheme.colorScheme.error
                         )
                         Button(
-                            onClick = { coroutineScope.launch { fetchTweetDetail() } }
+                            onClick = {
+                                coroutineScope.launch {
+                                    isLoading = true
+                                    errorMessage = null
+                                    try {
+                                        val detail = timelineRepository.getTweetDetail(tweetId)
+                                        if (mainTweet == null) {
+                                            mainTweet = detail.firstOrNull { it.rest_id == tweetId } ?: detail.firstOrNull()
+                                        }
+                                        comments = detail.filter { it.rest_id != tweetId }
+                                    } catch (e: Exception) {
+                                        e.printStackTrace()
+                                        errorMessage = e.message ?: "Unknown error"
+                                    } finally {
+                                        isLoading = false
+                                    }
+                                }
+                            }
                         ) {
                             Text("Retry")
                         }
                     }
                 }
-
                 else -> {
                     LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(bottom = 24.dp)
+                        contentPadding = PaddingValues(vertical = 8.dp)
                     ) {
-                        items(tweets) { tweet ->
+                        mainTweet?.let { tweet ->
+                            item {
+                                PostItem(
+                                    tweet = tweet,
+                                    onImageClick = { url -> selectedImageUrl = url },
+                                    onTweetClick = { /* Already on detail */ }
+                                )
+                            }
+                        }
+
+                        if (isLoading && comments.isEmpty()) {
+                            item {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 8.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    LoadingIndicator()
+                                }
+                            }
+                        }
+
+                        items(comments) { tweet ->
                             PostItem(
                                 tweet = tweet,
                                 onImageClick = { url -> selectedImageUrl = url },
@@ -121,13 +168,13 @@ fun TweetDetailScreen(
                     }
                 }
             }
-        }
 
-        if (selectedImageUrl != null) {
-            ImageViewerScreen(
-                imageUrl = selectedImageUrl!!,
-                onDismiss = { selectedImageUrl = null }
-            )
+            if (selectedImageUrl != null) {
+                ImageViewerScreen(
+                    imageUrl = selectedImageUrl!!,
+                    onDismiss = { selectedImageUrl = null }
+                )
+            }
         }
     }
 }
