@@ -23,6 +23,7 @@ import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import dev.bobbrysonn.atebits.ui.screens.home.HomeScreen
@@ -32,6 +33,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import dev.bobbrysonn.atebits.data.TweetCache
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun MainScreen() {
     val navController = rememberNavController()
