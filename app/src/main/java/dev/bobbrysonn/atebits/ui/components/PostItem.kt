@@ -30,10 +30,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import dev.bobbrysonn.atebits.data.TweetResult
+import java.time.Duration
+import java.time.Instant
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+import kotlin.math.max
 
 @Composable
 fun PostItem(
@@ -44,6 +49,7 @@ fun PostItem(
     val user = tweet.core?.userResults?.result?.legacy
     val tweetContent = tweet.legacy
     val media = tweetContent?.extendedEntities?.media ?: tweetContent?.entities?.media
+    val timeAgo = tweetContent?.createdAt?.let { formatTimeAgo(it) }
 
     Card(
         modifier = Modifier
@@ -73,11 +79,23 @@ fun PostItem(
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    Text(
-                        text = "@${user?.screenName}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "@${user?.screenName}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (!timeAgo.isNullOrEmpty()) {
+                            Text(
+                                text = timeAgo,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
             }
 
@@ -165,5 +183,30 @@ fun formatCount(count: Int): String {
         count < 1000 -> count.toString()
         count < 1000000 -> String.format("%.1fk", count / 1000.0)
         else -> String.format("%.1fM", count / 1000000.0)
+    }
+}
+
+private val twitterDateFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("EEE MMM dd HH:mm:ss Z yyyy", Locale.ENGLISH)
+
+fun formatTimeAgo(createdAt: String): String {
+    return try {
+        val tweetTime = ZonedDateTime.parse(createdAt, twitterDateFormatter).toInstant()
+        val duration = Duration.between(tweetTime, Instant.now())
+        val minutes = max(1L, duration.toMinutes())
+        val hours = duration.toHours()
+        val days = duration.toDays()
+        val weeks = days / 7
+        val years = days / 365
+
+        when {
+            minutes < 60 -> "${minutes}m"
+            hours < 24 -> "${hours}h"
+            days < 7 -> "${days}d"
+            weeks < 52 -> "${weeks}w"
+            else -> "${years}y"
+        }
+    } catch (e: Exception) {
+        ""
     }
 }
