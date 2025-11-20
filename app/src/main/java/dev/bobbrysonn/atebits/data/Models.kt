@@ -55,7 +55,7 @@ data class TweetResults(
 
 @Serializable
 data class TweetResult(
-    val __typename: String,
+    val __typename: String? = null,
     val rest_id: String? = null,
     val core: TweetCore? = null,
     val legacy: TweetLegacy? = null,

@@ -2,6 +2,7 @@ package dev.bobbrysonn.atebits.ui.screens.home
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -18,6 +19,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import dev.bobbrysonn.atebits.data.AuthRepository
 import dev.bobbrysonn.atebits.data.TimelineRepository
 import dev.bobbrysonn.atebits.data.TweetResult
@@ -33,6 +35,7 @@ fun HomeScreen(modifier: Modifier = Modifier) {
     val authRepository = remember { AuthRepository(context) }
     val timelineRepository = remember { TimelineRepository(authRepository) }
     var tweets by remember { mutableStateOf<List<TweetResult>>(emptyList()) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
@@ -40,6 +43,7 @@ fun HomeScreen(modifier: Modifier = Modifier) {
             tweets = timelineRepository.getHomeTimeline()
         } catch (e: Exception) {
             e.printStackTrace()
+            errorMessage = e.message ?: "Unknown error"
         }
     }
 
@@ -54,9 +58,22 @@ fun HomeScreen(modifier: Modifier = Modifier) {
             }
         }
         
-        LazyColumn {
-            items(tweets) { tweet ->
-                PostItem(tweet = tweet)
+        if (errorMessage != null) {
+            Text(
+                text = "Error: $errorMessage",
+                color = androidx.compose.material3.MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(16.dp)
+            )
+        } else if (tweets.isEmpty()) {
+             Text(
+                text = "Loading...",
+                modifier = Modifier.padding(16.dp)
+            )
+        } else {
+            LazyColumn {
+                items(tweets) { tweet ->
+                    PostItem(tweet = tweet)
+                }
             }
         }
     }

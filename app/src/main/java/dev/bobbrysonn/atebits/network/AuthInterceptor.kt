@@ -16,9 +16,14 @@ class AuthInterceptor(private val authRepository: AuthRepository) : Interceptor 
         // Add Auth headers if session exists
         val session = authRepository.getSession()
         if (session != null) {
-            builder.header("Authorization", session.authorization)
+            builder.header("Authorization", Constants.BEARER_TOKEN) // Changed to use Constants.BEARER_TOKEN
             builder.header("Cookie", session.cookieString)
             builder.header("x-csrf-token", session.csrfToken)
+            builder.header("content-type", "application/json")
+            builder.header("referer", "https://x.com/")
+            builder.header("x-twitter-active-user", "yes")
+            builder.header("x-twitter-client-language", "en")
+            builder.header("priority", "u=1, i")
             
             // Add Transaction ID
             val path = originalRequest.url.encodedPath
