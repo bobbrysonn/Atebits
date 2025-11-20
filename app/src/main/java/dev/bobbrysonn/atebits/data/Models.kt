@@ -10,7 +10,13 @@ data class HomeTimelineResponse(
 
 @Serializable
 data class HomeTimelineData(
-    val home: HomeTimeline
+    val home: HomeTimeline? = null,
+    @SerialName("threaded_conversation_with_injections_v2") val threadedConversation: ThreadedConversation? = null
+)
+
+@Serializable
+data class ThreadedConversation(
+    val instructions: List<TimelineInstruction>
 )
 
 @Serializable
@@ -91,5 +97,26 @@ data class TweetLegacy(
     @SerialName("created_at") val createdAt: String,
     @SerialName("favorite_count") val favoriteCount: Int,
     @SerialName("retweet_count") val retweetCount: Int,
-    @SerialName("reply_count") val replyCount: Int
+    @SerialName("reply_count") val replyCount: Int,
+    val entities: TweetEntities? = null,
+    @SerialName("extended_entities") val extendedEntities: TweetEntities? = null
+)
+
+@Serializable
+data class TweetEntities(
+    val media: List<MediaEntity>? = null
+)
+
+@Serializable
+data class MediaEntity(
+    val id_str: String,
+    @SerialName("media_url_https") val mediaUrlHttps: String,
+    val type: String,
+    @SerialName("original_info") val originalInfo: MediaOriginalInfo? = null
+)
+
+@Serializable
+data class MediaOriginalInfo(
+    val width: Int,
+    val height: Int
 )

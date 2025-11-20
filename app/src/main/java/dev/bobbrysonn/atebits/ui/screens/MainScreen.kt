@@ -1,5 +1,7 @@
 package dev.bobbrysonn.atebits.ui.screens
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -21,23 +23,24 @@ import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.ui.Alignment
 import dev.bobbrysonn.atebits.ui.screens.home.HomeScreen
+
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import dev.bobbrysonn.atebits.ui.screens.TweetDetailScreen
 
 @Composable
 fun MainScreen() {
+    val navController = rememberNavController()
     var selectedItem by remember { mutableIntStateOf(0) }
     val items = listOf("Home", "Search", "Notifications", "Messages")
-    val selectedIcons = listOf(
-        Icons.Filled.Home,
-        Icons.Filled.Search,
-        Icons.Filled.Notifications,
-        Icons.Filled.Email
-    )
-    val unselectedIcons = listOf(
-        Icons.Outlined.Home,
-        Icons.Outlined.Search,
-        Icons.Outlined.Notifications,
-        Icons.Outlined.Email
+    val icons = listOf(
+        Icons.Filled.Home to Icons.Outlined.Home,
+        Icons.Filled.Search to Icons.Outlined.Search,
+        Icons.Filled.Notifications to Icons.Outlined.Notifications,
+        Icons.Filled.Email to Icons.Outlined.Email
     )
 
     Scaffold(
@@ -47,7 +50,7 @@ fun MainScreen() {
                     NavigationBarItem(
                         icon = {
                             Icon(
-                                if (selectedItem == index) selectedIcons[index] else unselectedIcons[index],
+                                if (selectedItem == index) icons[index].first else icons[index].second,
                                 contentDescription = item
                             )
                         },
@@ -59,10 +62,37 @@ fun MainScreen() {
             }
         }
     ) { innerPadding ->
-        // TODO: Use NavHost for proper navigation
-        when (selectedItem) {
-            0 -> HomeScreen(modifier = Modifier.padding(innerPadding))
-            else -> Text(text = "Coming Soon: ${items[selectedItem]}", modifier = Modifier.padding(innerPadding))
+        NavHost(
+            navController = navController,
+            startDestination = "home",
+            modifier = Modifier.padding(innerPadding)
+        ) {
+            composable("home") {
+                if (selectedItem == 0) {
+                    HomeScreen(
+                        onTweetClick = { tweet ->
+                            val tweetId = tweet.rest_id ?: tweet.tweet?.rest_id
+                            if (tweetId != null) {
+                                navController.navigate("tweet/$tweetId")
+                            }
+                        }
+                    )
+                } else {
+                    // Placeholder for other tabs
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Coming Soon: ${items[selectedItem]}")
+                    }
+                }
+            }
+            composable("tweet/{tweetId}") { backStackEntry ->
+                val tweetId = backStackEntry.arguments?.getString("tweetId")
+                if (tweetId != null) {
+                    TweetDetailScreen(
+                        tweetId = tweetId,
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+            }
         }
     }
 }
