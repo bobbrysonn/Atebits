@@ -28,6 +28,14 @@ import dev.bobbrysonn.atebits.ui.components.PostItem
 import dev.bobbrysonn.atebits.ui.screens.ImageViewerScreen
 import kotlinx.coroutines.launch
 
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     modifier: Modifier = Modifier,
@@ -37,21 +45,21 @@ fun HomeScreen(
     val titles = listOf("For You", "Following")
     
     val context = LocalContext.current
+    // We need to manually provide the factory because TimelineRepository needs AuthRepository
     val authRepository = remember { AuthRepository(context) }
     val timelineRepository = remember { TimelineRepository(authRepository) }
-    var tweets by remember { mutableStateOf<List<TweetResult>>(emptyList()) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-    var selectedImageUrl by remember { mutableStateOf<String?>(null) }
-    val scope = rememberCoroutineScope()
-
-    LaunchedEffect(Unit) {
-        try {
-            tweets = timelineRepository.getHomeTimeline()
-        } catch (e: Exception) {
-            e.printStackTrace()
-            errorMessage = e.message ?: "Unknown error"
+    
+    val viewModel: HomeViewModel = viewModel(
+        factory = object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                return HomeViewModel(timelineRepository) as T
+            }
         }
-    }
+    )
+
+    var selectedImageUrl by remember { mutableStateOf<String?>(null) }
+    val pullRefreshState = rememberPullToRefreshState()
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -65,25 +73,32 @@ fun HomeScreen(
                 }
             }
             
-            if (errorMessage != null) {
+            if (viewModel.errorMessage != null && viewModel.tweets.isEmpty()) {
                 Text(
-                    text = "Error: $errorMessage",
+                    text = "Error: ${viewModel.errorMessage}",
                     color = androidx.compose.material3.MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(16.dp)
                 )
-            } else if (tweets.isEmpty()) {
+            } else if (viewModel.isLoading && viewModel.tweets.isEmpty()) {
                  Text(
                     text = "Loading...",
                     modifier = Modifier.padding(16.dp)
                 )
             } else {
-                LazyColumn {
-                    items(tweets) { tweet ->
-                        PostItem(
-                            tweet = tweet,
-                            onImageClick = { url -> selectedImageUrl = url },
-                            onTweetClick = onTweetClick
-                        )
+                PullToRefreshBox(
+                    isRefreshing = viewModel.isRefreshing,
+                    onRefresh = { viewModel.refreshTweets() },
+                    state = pullRefreshState,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                        items(viewModel.tweets) { tweet ->
+                            PostItem(
+                                tweet = tweet,
+                                onImageClick = { url -> selectedImageUrl = url },
+                                onTweetClick = onTweetClick
+                            )
+                        }
                     }
                 }
             }

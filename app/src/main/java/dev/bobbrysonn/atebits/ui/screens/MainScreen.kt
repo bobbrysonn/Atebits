@@ -23,6 +23,7 @@ import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import dev.bobbrysonn.atebits.ui.screens.home.HomeScreen
 
@@ -56,7 +57,33 @@ fun MainScreen() {
                         },
                         label = { Text(item) },
                         selected = selectedItem == index,
-                        onClick = { selectedItem = index }
+                        onClick = { 
+                            selectedItem = index
+                            // When clicking the bottom bar item, navigate to the route
+                            // This logic is a bit mixed with the current "selectedItem" state
+                            // Ideally we should drive selectedItem from the navController's current destination
+                            // But for now, let's just ensure we navigate correctly
+                            val route = when(index) {
+                                0 -> "home"
+                                1 -> "search"
+                                2 -> "notifications"
+                                3 -> "messages"
+                                else -> "home"
+                            }
+                            navController.navigate(route) {
+                                // Pop up to the start destination of the graph to
+                                // avoid building up a large stack of destinations
+                                // on the back stack as users select items
+                                popUpTo(navController.graph.startDestinationId) {
+                                    saveState = true
+                                }
+                                // Avoid multiple copies of the same destination when
+                                // reselecting the same item
+                                launchSingleTop = true
+                                // Restore state when reselecting a previously selected item
+                                restoreState = true
+                            }
+                        }
                     )
                 }
             }
@@ -68,20 +95,33 @@ fun MainScreen() {
             modifier = Modifier.padding(innerPadding)
         ) {
             composable("home") {
-                if (selectedItem == 0) {
-                    HomeScreen(
-                        onTweetClick = { tweet ->
-                            val tweetId = tweet.rest_id ?: tweet.tweet?.rest_id
-                            if (tweetId != null) {
-                                navController.navigate("tweet/$tweetId")
-                            }
+                // Update selectedItem to 0 when this route is active
+                LaunchedEffect(Unit) { selectedItem = 0 }
+                HomeScreen(
+                    onTweetClick = { tweet ->
+                        val tweetId = tweet.rest_id ?: tweet.tweet?.rest_id
+                        if (tweetId != null) {
+                            navController.navigate("tweet/$tweetId")
                         }
-                    )
-                } else {
-                    // Placeholder for other tabs
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("Coming Soon: ${items[selectedItem]}")
                     }
+                )
+            }
+            composable("search") {
+                LaunchedEffect(Unit) { selectedItem = 1 }
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Coming Soon: Search")
+                }
+            }
+            composable("notifications") {
+                LaunchedEffect(Unit) { selectedItem = 2 }
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Coming Soon: Notifications")
+                }
+            }
+            composable("messages") {
+                LaunchedEffect(Unit) { selectedItem = 3 }
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Coming Soon: Messages")
                 }
             }
             composable("tweet/{tweetId}") { backStackEntry ->

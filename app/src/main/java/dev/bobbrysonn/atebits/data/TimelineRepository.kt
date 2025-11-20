@@ -40,6 +40,10 @@ class TimelineRepository(private val authRepository: AuthRepository) {
             response.data.home?.homeTimelineUrt?.instructions?.forEach { instruction ->
                 if (instruction.type == "TimelineAddEntries") {
                     instruction.entries?.forEach { entry ->
+                        // Filter out ads
+                        if (entry.entryId.contains("promoted", ignoreCase = true)) return@forEach
+                        if (entry.content.itemContent?.promotedMetadata != null) return@forEach
+
                         val result = entry.content.itemContent?.tweetResults?.result
                         if (result != null) {
                             if (result.__typename == "TweetWithVisibilityResults") {
@@ -83,7 +87,21 @@ class TimelineRepository(private val authRepository: AuthRepository) {
                                  }
                              }
                         }
-                        // TODO: Handle TimelineTimelineModule for replies if needed
+                        
+                        // Handle TimelineTimelineModule for replies
+                        entry.content.items?.forEach { moduleItem ->
+                            // Filter out ads in replies too
+                            if (moduleItem.item.itemContent.promotedMetadata != null) return@forEach
+                            
+                            val result = moduleItem.item.itemContent.tweetResults?.result
+                            if (result != null) {
+                                if (result.__typename == "TweetWithVisibilityResults") {
+                                    result.tweet?.let { tweets.add(it) }
+                                } else {
+                                    tweets.add(result)
+                                }
+                            }
+                        }
                     }
                 }
             }

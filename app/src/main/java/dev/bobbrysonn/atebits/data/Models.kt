@@ -45,13 +45,33 @@ data class TimelineEntry(
 @Serializable
 data class TimelineEntryContent(
     val entryType: String,
-    @SerialName("itemContent") val itemContent: TimelineItemContent? = null
+    @SerialName("itemContent") val itemContent: TimelineItemContent? = null,
+    val items: List<TimelineModuleItem>? = null
+)
+
+@Serializable
+data class TimelineModuleItem(
+    val entryId: String,
+    val item: TimelineModuleItemData
+)
+
+@Serializable
+data class TimelineModuleItemData(
+    val itemContent: TimelineItemContent
 )
 
 @Serializable
 data class TimelineItemContent(
     val itemType: String,
-    @SerialName("tweet_results") val tweetResults: TweetResults? = null
+    @SerialName("tweet_results") val tweetResults: TweetResults? = null,
+    @SerialName("promotedMetadata") val promotedMetadata: PromotedMetadata? = null
+)
+
+@Serializable
+data class PromotedMetadata(
+    val advertiserId: String? = null,
+    val impressionId: String? = null,
+    val disclosureType: String? = null
 )
 
 @Serializable
