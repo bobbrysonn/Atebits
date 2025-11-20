@@ -30,7 +30,6 @@ import dev.bobbrysonn.atebits.ui.screens.home.HomeScreen
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import dev.bobbrysonn.atebits.ui.screens.TweetDetailScreen
 import dev.bobbrysonn.atebits.data.TweetCache
 
 @Composable

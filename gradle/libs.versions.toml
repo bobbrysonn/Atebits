@@ -14,7 +14,7 @@ retrofit = "2.11.0"
 kotlinxSerialization = "1.7.3"
 retrofitKotlinxSerializationConverter = "1.0.0"
 coil = "2.7.0"
-navigationCompose = "2.8.3"
+navigationCompose = "2.9.6"
 material3Expressive = "1.5.0-alpha09"
 
 [libraries]
