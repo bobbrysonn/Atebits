@@ -89,8 +89,16 @@ data class TweetResult(
     val rest_id: String? = null,
     val core: TweetCore? = null,
     val legacy: TweetLegacy? = null,
-    val tweet: TweetResult? = null // For retweets or quoted tweets where result is a wrapper
+    val tweet: TweetResult? = null, // For retweets or quoted tweets where result is a wrapper
+    @SerialName("quoted_status_result") val quotedStatusResult: TweetResults? = null
 )
+
+// Unwraps TweetWithVisibilityResults and drops entries that can't be rendered
+// (tombstones, deleted/restricted tweets) — they have no rest_id or legacy payload.
+fun TweetResult.unwrapDisplayable(): TweetResult? {
+    val unwrapped = if (__typename == "TweetWithVisibilityResults") tweet else this
+    return unwrapped?.takeIf { it.rest_id != null && it.legacy != null }
+}
 
 @Serializable
 data class TweetCore(

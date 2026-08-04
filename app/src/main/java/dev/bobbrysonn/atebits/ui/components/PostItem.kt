@@ -1,5 +1,6 @@
 package dev.bobbrysonn.atebits.ui.components
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -29,10 +30,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import dev.bobbrysonn.atebits.data.TweetResult
 import dev.bobbrysonn.atebits.data.displayText
+import dev.bobbrysonn.atebits.data.unwrapDisplayable
 import java.time.Duration
 import java.time.Instant
 import java.time.ZonedDateTime
@@ -127,6 +130,15 @@ fun PostItem(
                 )
             }
 
+            tweet.quotedStatusResult?.result?.unwrapDisplayable()?.let { quoted ->
+                Spacer(modifier = Modifier.height(12.dp))
+                QuotedTweet(
+                    tweet = quoted,
+                    onImageClick = onImageClick,
+                    onClick = { onTweetClick(quoted) }
+                )
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
 
             Row(
@@ -154,6 +166,86 @@ fun PostItem(
                     contentDescription = "Share"
                 )
             }
+        }
+    }
+}
+
+// Compact bordered card for a quoted tweet, nested inside the quoting PostItem.
+@Composable
+private fun QuotedTweet(
+    tweet: TweetResult,
+    onImageClick: (String) -> Unit,
+    onClick: () -> Unit
+) {
+    val user = tweet.core?.userResults?.result?.legacy
+    val tweetContent = tweet.legacy
+    val media = tweetContent?.extendedEntities?.media ?: tweetContent?.entities?.media
+    val timeAgo = tweetContent?.createdAt?.let { formatTimeAgo(it) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
+            .clickable { onClick() }
+            .padding(12.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            AsyncImage(
+                model = user?.profileImageUrlHttps,
+                contentDescription = "Profile Picture",
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(CircleShape),
+                contentScale = ContentScale.Crop
+            )
+            Text(
+                text = user?.name ?: "Unknown",
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
+            )
+            Text(
+                text = "@${user?.screenName ?: "unknown"}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
+            )
+            if (!timeAgo.isNullOrEmpty()) {
+                Text(
+                    text = timeAgo,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = tweetContent?.displayText() ?: "",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+
+        val firstImageUrl = media?.firstOrNull()?.mediaUrlHttps
+        if (firstImageUrl != null) {
+            Spacer(modifier = Modifier.height(8.dp))
+            AsyncImage(
+                model = firstImageUrl,
+                contentDescription = "Quoted Tweet Image",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(160.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { onImageClick(firstImageUrl) },
+                contentScale = ContentScale.Crop
+            )
         }
     }
 }

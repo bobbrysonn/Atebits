@@ -141,7 +141,11 @@ fun TweetDetailScreen(
                                 PostItem(
                                     tweet = tweet,
                                     onImageClick = { url -> selectedImageUrl = url },
-                                    onTweetClick = { /* Already on detail */ }
+                                    // Already on this tweet's detail; only navigate for a
+                                    // different tweet (e.g. tapping its quoted tweet card).
+                                    onTweetClick = { clicked ->
+                                        if (clicked.rest_id != tweetId) onCommentClick(clicked)
+                                    }
                                 )
                             }
                         }

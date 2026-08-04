@@ -109,11 +109,4 @@ class TimelineRepository(private val authRepository: AuthRepository) {
             throw e
         }
     }
-
-    // Unwraps TweetWithVisibilityResults and drops entries that can't be rendered
-    // (tombstones, deleted/restricted tweets) — they have no rest_id or legacy payload.
-    private fun TweetResult.unwrapDisplayable(): TweetResult? {
-        val unwrapped = if (__typename == "TweetWithVisibilityResults") tweet else this
-        return unwrapped?.takeIf { it.rest_id != null && it.legacy != null }
-    }
 }
