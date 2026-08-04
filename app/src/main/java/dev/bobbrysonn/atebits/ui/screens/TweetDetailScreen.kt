@@ -47,7 +47,8 @@ import kotlinx.coroutines.launch
 fun TweetDetailScreen(
     tweetId: String,
     initialTweet: TweetResult? = null,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onCommentClick: (TweetResult) -> Unit = {}
 ) {
     val context = LocalContext.current
     val authRepository = remember { AuthRepository(context) }
@@ -59,21 +60,23 @@ fun TweetDetailScreen(
     var selectedImageUrl by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
 
-    LaunchedEffect(tweetId) {
+    val loadDetail: suspend () -> Unit = {
         isLoading = true
         errorMessage = null
         try {
             val detail = timelineRepository.getTweetDetail(tweetId)
-            if (mainTweet == null) {
-                mainTweet = detail.firstOrNull { it.rest_id == tweetId } ?: detail.firstOrNull()
-            }
-            comments = detail.filter { it.rest_id != tweetId }
+            detail.mainTweet?.let { mainTweet = it }
+            comments = detail.replies
         } catch (e: Exception) {
             e.printStackTrace()
             errorMessage = e.message ?: "Unknown error"
         } finally {
             isLoading = false
         }
+    }
+
+    LaunchedEffect(tweetId) {
+        loadDetail()
     }
 
     Scaffold(
@@ -110,24 +113,7 @@ fun TweetDetailScreen(
                             color = MaterialTheme.colorScheme.error
                         )
                         Button(
-                            onClick = {
-                                coroutineScope.launch {
-                                    isLoading = true
-                                    errorMessage = null
-                                    try {
-                                        val detail = timelineRepository.getTweetDetail(tweetId)
-                                        if (mainTweet == null) {
-                                            mainTweet = detail.firstOrNull { it.rest_id == tweetId } ?: detail.firstOrNull()
-                                        }
-                                        comments = detail.filter { it.rest_id != tweetId }
-                                    } catch (e: Exception) {
-                                        e.printStackTrace()
-                                        errorMessage = e.message ?: "Unknown error"
-                                    } finally {
-                                        isLoading = false
-                                    }
-                                }
-                            }
+                            onClick = { coroutineScope.launch { loadDetail() } }
                         ) {
                             Text("Retry")
                         }
@@ -164,7 +150,7 @@ fun TweetDetailScreen(
                             PostItem(
                                 tweet = tweet,
                                 onImageClick = { url -> selectedImageUrl = url },
-                                onTweetClick = { /* Already on detail */ }
+                                onTweetClick = onCommentClick
                             )
                         }
                     }

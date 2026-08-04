@@ -134,7 +134,16 @@ fun MainScreen() {
                     TweetDetailScreen(
                         tweetId = tweetId,
                         initialTweet = cachedTweet,
-                        onBack = { navController.popBackStack() }
+                        onBack = { navController.popBackStack() },
+                        // Tapping a comment opens it as its own detail screen with its
+                        // sub-replies — recursion via the nav back stack.
+                        onCommentClick = { tweet ->
+                            val id = tweet.rest_id ?: tweet.tweet?.rest_id
+                            if (id != null) {
+                                TweetCache.put(id, tweet)
+                                navController.navigate("tweet/$id")
+                            }
+                        }
                     )
                 }
             }

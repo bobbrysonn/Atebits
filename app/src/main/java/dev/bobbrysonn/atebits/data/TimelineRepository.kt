@@ -8,6 +8,12 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 
+// A focal tweet with its direct replies; sub-replies load when a reply is opened.
+data class TweetDetail(
+    val mainTweet: TweetResult?,
+    val replies: List<TweetResult>
+)
+
 class TimelineRepository(private val authRepository: AuthRepository) {
     private val json = Json {
         ignoreUnknownKeys = true
@@ -61,34 +67,42 @@ class TimelineRepository(private val authRepository: AuthRepository) {
         }
     }
 
-    suspend fun getTweetDetail(tweetId: String): List<TweetResult> {
+    suspend fun getTweetDetail(tweetId: String): TweetDetail {
         val variables = "{\"focalTweetId\":\"$tweetId\",\"referrer\":\"profile\",\"controller_data\":\"DAACDAABDAABCgABAAAAAAAAAAAKAAkNObspUxawBQAAAAA=\",\"with_rux_injections\":false,\"includePromotedContent\":false,\"withCommunity\":true,\"withQuickPromoteEligibilityTweetFields\":true,\"withBirdwatchNotes\":true,\"withVoice\":true,\"withV2Timeline\":true}"
         val features = "{\"rweb_lists_timeline_redesign_enabled\":true,\"responsive_web_graphql_exclude_directive_enabled\":true,\"verified_phone_label_enabled\":true,\"creator_subscriptions_tweet_preview_api_enabled\":true,\"responsive_web_graphql_timeline_navigation_enabled\":true,\"responsive_web_graphql_skip_user_profile_image_extensions_enabled\":false,\"tweetypie_unmention_optimization_enabled\":true,\"responsive_web_edit_tweet_api_enabled\":true,\"graphql_is_translatable_rweb_tweet_is_translatable_enabled\":true,\"view_counts_everywhere_api_enabled\":true,\"longform_notetweets_consumption_enabled\":true,\"responsive_web_twitter_article_tweet_consumption_enabled\":false,\"tweet_awards_web_tipping_enabled\":false,\"freedom_of_speech_not_reach_fetch_enabled\":true,\"standardized_nudges_misinfo\":true,\"tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled\":true,\"longform_notetweets_rich_text_read_enabled\":true,\"longform_notetweets_inline_media_enabled\":true,\"responsive_web_media_download_video_enabled\":false,\"responsive_web_enhance_cards_enabled\":false}"
 
         try {
             val response = api.getTweetDetail(variables, features)
-            val tweets = mutableListOf<TweetResult>()
+            var mainTweet: TweetResult? = null
+            val replies = mutableListOf<TweetResult>()
 
             response.data?.threadedConversation?.instructions?.forEach { instruction ->
                 if (instruction.type == "TimelineAddEntries") {
                     instruction.entries?.forEach { entry ->
-                        // Handle both single items and modules (threads)
-                        entry.content?.itemContent?.tweetResults?.result
-                            ?.unwrapDisplayable()?.let { tweets.add(it) }
+                        // The focal tweet (and its ancestors, which we skip) arrive as
+                        // standalone entries.
+                        entry.content?.itemContent?.let { item ->
+                            if (item.promotedMetadata != null) return@forEach
+                            item.tweetResults?.result?.unwrapDisplayable()?.let { tweet ->
+                                if (tweet.rest_id == tweetId) mainTweet = tweet
+                            }
+                        }
 
-                        // Handle TimelineTimelineModule for replies
-                        entry.content?.items?.forEach { moduleItem ->
-                            val itemContent = moduleItem.item?.itemContent ?: return@forEach
-                            // Filter out ads in replies too
-                            if (itemContent.promotedMetadata != null) return@forEach
-
-                            itemContent.tweetResults?.result
-                                ?.unwrapDisplayable()?.let { tweets.add(it) }
+                        // Each conversationthread module is one reply thread: its first
+                        // tweet is the direct reply, the rest are sub-replies the user
+                        // sees by tapping through (like the official client).
+                        if (entry.entryId.startsWith("conversationthread-")) {
+                            entry.content?.items?.firstNotNullOfOrNull { moduleItem ->
+                                val item = moduleItem.item?.itemContent
+                                    ?: return@firstNotNullOfOrNull null
+                                if (item.promotedMetadata != null) return@firstNotNullOfOrNull null
+                                item.tweetResults?.result?.unwrapDisplayable()
+                            }?.let { replies.add(it) }
                         }
                     }
                 }
             }
-            return tweets
+            return TweetDetail(mainTweet, replies)
         } catch (e: Exception) {
             println("TimelineRepository: Error fetching tweet detail: ${e.message}")
             e.printStackTrace()

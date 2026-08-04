@@ -118,6 +118,7 @@ data class UserLegacy(
 @Serializable
 data class TweetLegacy(
     @SerialName("full_text") val fullText: String? = null,
+    @SerialName("display_text_range") val displayTextRange: List<Int>? = null,
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("favorite_count") val favoriteCount: Int = 0,
     @SerialName("retweet_count") val retweetCount: Int = 0,
@@ -154,10 +155,18 @@ data class MediaOriginalInfo(
     val height: Int = 0
 )
 
-// full_text contains raw t.co links: replace linked URLs with their readable
-// display form and strip media links entirely (the media renders separately).
+// full_text contains raw t.co links and, on replies, leading @mentions.
+// display_text_range marks the visible slice (drops both); then replace linked
+// URLs with their readable display form and strip media links entirely
+// (the media renders separately).
 fun TweetLegacy.displayText(): String {
     var text = fullText ?: return ""
+    displayTextRange?.takeIf { it.size == 2 }?.let { (start, end) ->
+        // Range indices are Unicode code points, not UTF-16 offsets
+        val from = text.codePointsToOffset(start)
+        val to = text.codePointsToOffset(end)
+        if (from < to) text = text.substring(from, to)
+    }
     entities?.urls?.forEach { entity ->
         val tco = entity.url ?: return@forEach
         text = text.replace(tco, entity.displayUrl ?: entity.expandedUrl ?: tco)
@@ -165,5 +174,14 @@ fun TweetLegacy.displayText(): String {
     val mediaLinks = (extendedEntities?.media ?: entities?.media)
         .orEmpty().mapNotNull { it.url }.distinct()
     mediaLinks.forEach { text = text.replace(it, "") }
+    // full_text is HTML-escaped (&, <, > only); &amp; last to avoid double-decoding
+    text = text.replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&")
     return text.trim()
 }
+
+private fun String.codePointsToOffset(codePoints: Int): Int =
+    try {
+        offsetByCodePoints(0, codePoints)
+    } catch (e: IndexOutOfBoundsException) {
+        length
+    }
