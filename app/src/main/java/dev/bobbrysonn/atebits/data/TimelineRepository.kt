@@ -9,7 +9,10 @@ import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 
 class TimelineRepository(private val authRepository: AuthRepository) {
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        coerceInputValues = true
+    }
     private val client = OkHttpClient.Builder()
         .addInterceptor(AuthInterceptor(authRepository))
         .build()
@@ -36,22 +39,16 @@ class TimelineRepository(private val authRepository: AuthRepository) {
             val response = api.getHomeTimeline(variables, features)
             
             val tweets = mutableListOf<TweetResult>()
-            
-            response.data.home?.homeTimelineUrt?.instructions?.forEach { instruction ->
+
+            response.data?.home?.homeTimelineUrt?.instructions?.forEach { instruction ->
                 if (instruction.type == "TimelineAddEntries") {
                     instruction.entries?.forEach { entry ->
                         // Filter out ads
                         if (entry.entryId.contains("promoted", ignoreCase = true)) return@forEach
-                        if (entry.content.itemContent?.promotedMetadata != null) return@forEach
+                        if (entry.content?.itemContent?.promotedMetadata != null) return@forEach
 
-                        val result = entry.content.itemContent?.tweetResults?.result
-                        if (result != null) {
-                            if (result.__typename == "TweetWithVisibilityResults") {
-                                result.tweet?.let { tweets.add(it) }
-                            } else {
-                                tweets.add(result)
-                            }
-                        }
+                        entry.content?.itemContent?.tweetResults?.result
+                            ?.unwrapDisplayable()?.let { tweets.add(it) }
                     }
                 }
             }
@@ -72,35 +69,21 @@ class TimelineRepository(private val authRepository: AuthRepository) {
             val response = api.getTweetDetail(variables, features)
             val tweets = mutableListOf<TweetResult>()
 
-            response.data.threadedConversation?.instructions?.forEach { instruction ->
+            response.data?.threadedConversation?.instructions?.forEach { instruction ->
                 if (instruction.type == "TimelineAddEntries") {
                     instruction.entries?.forEach { entry ->
                         // Handle both single items and modules (threads)
-                        val itemContent = entry.content.itemContent
-                        if (itemContent != null) {
-                             val result = itemContent.tweetResults?.result
-                             if (result != null) {
-                                 if (result.__typename == "TweetWithVisibilityResults") {
-                                     result.tweet?.let { tweets.add(it) }
-                                 } else {
-                                     tweets.add(result)
-                                 }
-                             }
-                        }
-                        
+                        entry.content?.itemContent?.tweetResults?.result
+                            ?.unwrapDisplayable()?.let { tweets.add(it) }
+
                         // Handle TimelineTimelineModule for replies
-                        entry.content.items?.forEach { moduleItem ->
+                        entry.content?.items?.forEach { moduleItem ->
+                            val itemContent = moduleItem.item?.itemContent ?: return@forEach
                             // Filter out ads in replies too
-                            if (moduleItem.item.itemContent.promotedMetadata != null) return@forEach
-                            
-                            val result = moduleItem.item.itemContent.tweetResults?.result
-                            if (result != null) {
-                                if (result.__typename == "TweetWithVisibilityResults") {
-                                    result.tweet?.let { tweets.add(it) }
-                                } else {
-                                    tweets.add(result)
-                                }
-                            }
+                            if (itemContent.promotedMetadata != null) return@forEach
+
+                            itemContent.tweetResults?.result
+                                ?.unwrapDisplayable()?.let { tweets.add(it) }
                         }
                     }
                 }
@@ -111,5 +94,12 @@ class TimelineRepository(private val authRepository: AuthRepository) {
             e.printStackTrace()
             throw e
         }
+    }
+
+    // Unwraps TweetWithVisibilityResults and drops entries that can't be rendered
+    // (tombstones, deleted/restricted tweets) — they have no rest_id or legacy payload.
+    private fun TweetResult.unwrapDisplayable(): TweetResult? {
+        val unwrapped = if (__typename == "TweetWithVisibilityResults") tweet else this
+        return unwrapped?.takeIf { it.rest_id != null && it.legacy != null }
     }
 }

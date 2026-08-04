@@ -88,7 +88,7 @@ fun PostItem(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "@${user?.screenName}",
+                            text = "@${user?.screenName ?: "unknown"}",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -111,20 +111,19 @@ fun PostItem(
                 color = MaterialTheme.colorScheme.onSurface
             )
 
-            if (!media.isNullOrEmpty()) {
+            val firstImageUrl = media?.firstOrNull()?.mediaUrlHttps
+            if (firstImageUrl != null) {
                 Spacer(modifier = Modifier.height(12.dp))
-                media.firstOrNull()?.let { firstImage ->
-                    AsyncImage(
-                        model = firstImage.mediaUrlHttps,
-                        contentDescription = "Tweet Image",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .clickable { onImageClick(firstImage.mediaUrlHttps) },
-                        contentScale = ContentScale.Crop
-                    )
-                }
+                AsyncImage(
+                    model = firstImageUrl,
+                    contentDescription = "Tweet Image",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .clickable { onImageClick(firstImageUrl) },
+                    contentScale = ContentScale.Crop
+                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))

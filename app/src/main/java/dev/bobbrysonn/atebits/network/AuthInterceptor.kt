@@ -33,6 +33,14 @@ class AuthInterceptor(private val authRepository: AuthRepository) : Interceptor 
             }
         }
 
-        return chain.proceed(builder.build())
+        val response = chain.proceed(builder.build())
+
+        // 401 = expired/revoked auth_token, 403 = rejected csrf/cookies. Either way
+        // the stored session is dead — wipe it and signal the UI to show login.
+        if (session != null && (response.code == 401 || response.code == 403)) {
+            authRepository.onSessionExpired()
+        }
+
+        return response
     }
 }

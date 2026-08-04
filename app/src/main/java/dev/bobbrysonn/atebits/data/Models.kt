@@ -3,9 +3,13 @@ package dev.bobbrysonn.atebits.data
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+// Every field the API might omit is nullable or defaulted so a single
+// tombstoned/restricted/deleted tweet can't fail deserialization of the
+// whole timeline. Unusable entries are filtered out in TimelineRepository.
+
 @Serializable
 data class HomeTimelineResponse(
-    val data: HomeTimelineData
+    val data: HomeTimelineData? = null
 )
 
 @Serializable
@@ -16,53 +20,53 @@ data class HomeTimelineData(
 
 @Serializable
 data class ThreadedConversation(
-    val instructions: List<TimelineInstruction>
+    val instructions: List<TimelineInstruction> = emptyList()
 )
 
 @Serializable
 data class HomeTimeline(
-    @SerialName("home_timeline_urt") val homeTimelineUrt: Timeline
+    @SerialName("home_timeline_urt") val homeTimelineUrt: Timeline? = null
 )
 
 @Serializable
 data class Timeline(
-    val instructions: List<TimelineInstruction>
+    val instructions: List<TimelineInstruction> = emptyList()
 )
 
 @Serializable
 data class TimelineInstruction(
-    val type: String,
+    val type: String = "",
     val entries: List<TimelineEntry>? = null
 )
 
 @Serializable
 data class TimelineEntry(
-    val entryId: String,
-    val sortIndex: String,
-    val content: TimelineEntryContent
+    val entryId: String = "",
+    val sortIndex: String? = null,
+    val content: TimelineEntryContent? = null
 )
 
 @Serializable
 data class TimelineEntryContent(
-    val entryType: String,
+    val entryType: String = "",
     @SerialName("itemContent") val itemContent: TimelineItemContent? = null,
     val items: List<TimelineModuleItem>? = null
 )
 
 @Serializable
 data class TimelineModuleItem(
-    val entryId: String,
-    val item: TimelineModuleItemData
+    val entryId: String = "",
+    val item: TimelineModuleItemData? = null
 )
 
 @Serializable
 data class TimelineModuleItemData(
-    val itemContent: TimelineItemContent
+    val itemContent: TimelineItemContent? = null
 )
 
 @Serializable
 data class TimelineItemContent(
-    val itemType: String,
+    val itemType: String = "",
     @SerialName("tweet_results") val tweetResults: TweetResults? = null,
     @SerialName("promotedMetadata") val promotedMetadata: PromotedMetadata? = null
 )
@@ -76,7 +80,7 @@ data class PromotedMetadata(
 
 @Serializable
 data class TweetResults(
-    val result: TweetResult
+    val result: TweetResult? = null
 )
 
 @Serializable
@@ -90,34 +94,34 @@ data class TweetResult(
 
 @Serializable
 data class TweetCore(
-    @SerialName("user_results") val userResults: UserResults
+    @SerialName("user_results") val userResults: UserResults? = null
 )
 
 @Serializable
 data class UserResults(
-    val result: UserResult
+    val result: UserResult? = null
 )
 
 @Serializable
 data class UserResult(
-    val rest_id: String,
-    val legacy: UserLegacy
+    val rest_id: String? = null,
+    val legacy: UserLegacy? = null
 )
 
 @Serializable
 data class UserLegacy(
-    val name: String,
-    @SerialName("screen_name") val screenName: String,
-    @SerialName("profile_image_url_https") val profileImageUrlHttps: String
+    val name: String? = null,
+    @SerialName("screen_name") val screenName: String? = null,
+    @SerialName("profile_image_url_https") val profileImageUrlHttps: String? = null
 )
 
 @Serializable
 data class TweetLegacy(
-    @SerialName("full_text") val fullText: String,
-    @SerialName("created_at") val createdAt: String,
-    @SerialName("favorite_count") val favoriteCount: Int,
-    @SerialName("retweet_count") val retweetCount: Int,
-    @SerialName("reply_count") val replyCount: Int,
+    @SerialName("full_text") val fullText: String? = null,
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("favorite_count") val favoriteCount: Int = 0,
+    @SerialName("retweet_count") val retweetCount: Int = 0,
+    @SerialName("reply_count") val replyCount: Int = 0,
     val entities: TweetEntities? = null,
     @SerialName("extended_entities") val extendedEntities: TweetEntities? = null
 )
@@ -129,14 +133,14 @@ data class TweetEntities(
 
 @Serializable
 data class MediaEntity(
-    val id_str: String,
-    @SerialName("media_url_https") val mediaUrlHttps: String,
-    val type: String,
+    val id_str: String? = null,
+    @SerialName("media_url_https") val mediaUrlHttps: String? = null,
+    val type: String? = null,
     @SerialName("original_info") val originalInfo: MediaOriginalInfo? = null
 )
 
 @Serializable
 data class MediaOriginalInfo(
-    val width: Int,
-    val height: Int
+    val width: Int = 0,
+    val height: Int = 0
 )
