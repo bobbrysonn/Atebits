@@ -39,6 +39,7 @@ import dev.bobbrysonn.atebits.data.AuthRepository
 import dev.bobbrysonn.atebits.data.TimelineRepository
 import dev.bobbrysonn.atebits.data.TweetResult
 import dev.bobbrysonn.atebits.data.TweetCache
+import dev.bobbrysonn.atebits.data.TweetDetailCache
 import dev.bobbrysonn.atebits.ui.components.PostItem
 import kotlinx.coroutines.launch
 
@@ -61,17 +62,29 @@ fun TweetDetailScreen(
     var isLoading by remember { mutableStateOf(false) }
 
     val loadDetail: suspend () -> Unit = {
-        isLoading = true
         errorMessage = null
-        try {
-            val detail = timelineRepository.getTweetDetail(tweetId)
-            detail.mainTweet?.let { mainTweet = it }
-            comments = detail.replies
-        } catch (e: Exception) {
-            e.printStackTrace()
-            errorMessage = e.message ?: "Unknown error"
-        } finally {
-            isLoading = false
+        // Serve cached comments instantly on revisit
+        TweetDetailCache.get(tweetId)?.let { cached ->
+            cached.mainTweet?.let { mainTweet = it }
+            comments = cached.replies
+        }
+        // Only hit the network when the cache entry is stale or missing
+        if (!TweetDetailCache.isFresh(tweetId)) {
+            isLoading = comments.isEmpty()
+            try {
+                val detail = timelineRepository.getTweetDetail(tweetId)
+                TweetDetailCache.put(tweetId, detail)
+                detail.mainTweet?.let { mainTweet = it }
+                comments = detail.replies
+            } catch (e: Exception) {
+                e.printStackTrace()
+                // A failed background refresh shouldn't hide already-shown comments
+                if (comments.isEmpty()) {
+                    errorMessage = e.message ?: "Unknown error"
+                }
+            } finally {
+                isLoading = false
+            }
         }
     }
 

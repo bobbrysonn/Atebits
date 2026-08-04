@@ -28,6 +28,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import dev.bobbrysonn.atebits.ui.screens.home.HomeScreen
 
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.tween
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -127,7 +129,21 @@ fun MainScreen() {
                     Text("Coming Soon: Messages")
                 }
             }
-            composable("tweet/{tweetId}") { backStackEntry ->
+            composable(
+                "tweet/{tweetId}",
+                enterTransition = {
+                    slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(300))
+                },
+                exitTransition = {
+                    slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(300))
+                },
+                popEnterTransition = {
+                    slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(300))
+                },
+                popExitTransition = {
+                    slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(300))
+                }
+            ) { backStackEntry ->
                 val tweetId = backStackEntry.arguments?.getString("tweetId")
                 if (tweetId != null) {
                     val cachedTweet = TweetCache.get(tweetId)
