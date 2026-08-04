@@ -3,11 +3,24 @@ package dev.bobbrysonn.atebits.ui.screens
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberDrawerState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -47,7 +60,57 @@ fun MainScreen() {
         Icons.Filled.Notifications to Icons.Outlined.Notifications,
         Icons.Filled.Email to Icons.Outlined.Email
     )
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val drawerScope = rememberCoroutineScope()
 
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet {
+                // Placeholder until we fetch the signed-in user's profile
+                Icon(
+                    imageVector = Icons.Filled.AccountCircle,
+                    contentDescription = "Your account",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .padding(start = 16.dp, top = 24.dp, bottom = 8.dp)
+                        .size(48.dp)
+                )
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                NavigationDrawerItem(
+                    label = { Text("Settings") },
+                    icon = { Icon(Icons.Outlined.Settings, contentDescription = null) },
+                    selected = false,
+                    onClick = {
+                        drawerScope.launch { drawerState.close() }
+                        navController.navigate("settings")
+                    },
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                )
+            }
+        }
+    ) {
+        MainScaffold(
+            navController = navController,
+            selectedItem = selectedItem,
+            onSelectItem = { selectedItem = it },
+            items = items,
+            icons = icons,
+            onOpenDrawer = { drawerScope.launch { drawerState.open() } }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun MainScaffold(
+    navController: androidx.navigation.NavHostController,
+    selectedItem: Int,
+    onSelectItem: (Int) -> Unit,
+    items: List<String>,
+    icons: List<Pair<androidx.compose.ui.graphics.vector.ImageVector, androidx.compose.ui.graphics.vector.ImageVector>>,
+    onOpenDrawer: () -> Unit
+) {
     Scaffold(
         bottomBar = {
             NavigationBar {
@@ -61,8 +124,8 @@ fun MainScreen() {
                         },
                         label = { Text(item) },
                         selected = selectedItem == index,
-                        onClick = { 
-                            selectedItem = index
+                        onClick = {
+                            onSelectItem(index)
                             // When clicking the bottom bar item, navigate to the route
                             // This logic is a bit mixed with the current "selectedItem" state
                             // Ideally we should drive selectedItem from the navController's current destination
@@ -100,7 +163,7 @@ fun MainScreen() {
         ) {
             composable("home") {
                 // Update selectedItem to 0 when this route is active
-                LaunchedEffect(Unit) { selectedItem = 0 }
+                LaunchedEffect(Unit) { onSelectItem(0) }
                 HomeScreen(
                     onTweetClick = { tweet ->
                         val tweetId = tweet.rest_id ?: tweet.tweet?.rest_id
@@ -108,23 +171,35 @@ fun MainScreen() {
                             TweetCache.put(tweetId, tweet)
                             navController.navigate("tweet/$tweetId")
                         }
-                    }
+                    },
+                    onAvatarClick = onOpenDrawer
                 )
             }
+            composable(
+                "settings",
+                enterTransition = {
+                    slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(300))
+                },
+                popExitTransition = {
+                    slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(300))
+                }
+            ) {
+                SettingsScreen(onBack = { navController.popBackStack() })
+            }
             composable("search") {
-                LaunchedEffect(Unit) { selectedItem = 1 }
+                LaunchedEffect(Unit) { onSelectItem(1) }
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("Coming Soon: Search")
                 }
             }
             composable("notifications") {
-                LaunchedEffect(Unit) { selectedItem = 2 }
+                LaunchedEffect(Unit) { onSelectItem(2) }
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("Coming Soon: Notifications")
                 }
             }
             composable("messages") {
-                LaunchedEffect(Unit) { selectedItem = 3 }
+                LaunchedEffect(Unit) { onSelectItem(3) }
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("Coming Soon: Messages")
                 }

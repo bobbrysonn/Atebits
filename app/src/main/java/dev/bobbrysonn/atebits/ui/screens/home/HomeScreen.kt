@@ -16,7 +16,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
@@ -24,11 +31,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import dev.bobbrysonn.atebits.data.AuthRepository
+import dev.bobbrysonn.atebits.data.MediaEntity
 import dev.bobbrysonn.atebits.data.TimelineRepository
 import dev.bobbrysonn.atebits.data.TweetResult
 import dev.bobbrysonn.atebits.data.TweetCache
 import dev.bobbrysonn.atebits.ui.components.PostItem
 import dev.bobbrysonn.atebits.ui.screens.ImageViewerScreen
+import dev.bobbrysonn.atebits.ui.screens.VideoViewerScreen
 import kotlinx.coroutines.launch
 
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -45,7 +54,8 @@ import androidx.lifecycle.ViewModelProvider
 @Composable
 fun HomeScreen(
     modifier: Modifier = Modifier,
-    onTweetClick: (TweetResult) -> Unit = {}
+    onTweetClick: (TweetResult) -> Unit = {},
+    onAvatarClick: () -> Unit = {}
 ) {
     var state by remember { mutableIntStateOf(0) }
     val titles = listOf("For You", "Following")
@@ -65,17 +75,29 @@ fun HomeScreen(
     )
 
     var selectedImageUrl by remember { mutableStateOf<String?>(null) }
+    var selectedVideo by remember { mutableStateOf<Pair<MediaEntity, Long>?>(null) }
     val pullRefreshState = rememberPullToRefreshState()
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            PrimaryTabRow(selectedTabIndex = state) {
-                titles.forEachIndexed { index, title ->
-                    Tab(
-                        selected = state == index,
-                        onClick = { state = index },
-                        text = { Text(text = title) }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Placeholder account icon until we fetch the signed-in user's profile
+                IconButton(onClick = onAvatarClick) {
+                    Icon(
+                        imageVector = Icons.Filled.AccountCircle,
+                        contentDescription = "Open menu",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(32.dp)
                     )
+                }
+                PrimaryTabRow(selectedTabIndex = state, modifier = Modifier.weight(1f)) {
+                    titles.forEachIndexed { index, title ->
+                        Tab(
+                            selected = state == index,
+                            onClick = { state = index },
+                            text = { Text(text = title) }
+                        )
+                    }
                 }
             }
             
@@ -105,7 +127,10 @@ fun HomeScreen(
                             PostItem(
                                 tweet = tweet,
                                 onImageClick = { url -> selectedImageUrl = url },
-                                onTweetClick = onTweetClick
+                                onTweetClick = onTweetClick,
+                                onVideoClick = { media, positionMs ->
+                                    selectedVideo = media to positionMs
+                                }
                             )
                         }
                     }
@@ -117,6 +142,14 @@ fun HomeScreen(
             ImageViewerScreen(
                 imageUrl = selectedImageUrl!!,
                 onDismiss = { selectedImageUrl = null }
+            )
+        }
+
+        selectedVideo?.let { (media, positionMs) ->
+            VideoViewerScreen(
+                media = media,
+                startPositionMs = positionMs,
+                onDismiss = { selectedVideo = null }
             )
         }
     }

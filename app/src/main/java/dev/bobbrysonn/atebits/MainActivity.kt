@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import dev.bobbrysonn.atebits.data.AppSettings
 import dev.bobbrysonn.atebits.data.AuthRepository
 import dev.bobbrysonn.atebits.data.SessionEvents
 import dev.bobbrysonn.atebits.ui.screens.LoginScreen
@@ -26,6 +27,7 @@ class MainActivity : ComponentActivity() {
             WebView.setWebContentsDebuggingEnabled(true)
         }
 
+        AppSettings.init(this)
         val authRepository = AuthRepository(this)
 
         setContent {
