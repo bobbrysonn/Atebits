@@ -32,12 +32,45 @@ def _run(*cmd: str, timeout: int = 30) -> str:
     return out
 
 
+def _physical_id(serial: str) -> str:
+    # Wireless-debugging entries embed the USB serial: adb-<serial>-<suffix>._adb-tls-connect._tcp
+    if serial.startswith("adb-"):
+        return serial.removeprefix("adb-").split("._", 1)[0].rsplit("-", 1)[0]
+    return serial
+
+
+def _serial() -> str:
+    """Pick the target device, tolerating the same phone being connected over
+    both USB and wireless debugging at once (adb lists it twice)."""
+    if override := os.environ.get("ATEBITS_SERIAL"):
+        return override
+    serials = [
+        line.split()[0]
+        for line in _run("adb", "devices").splitlines()[1:]
+        if len(line.split()) >= 2 and line.split()[1] == "device"
+    ]
+    if not serials:
+        raise RuntimeError("no adb device connected (or unauthorized)")
+    if len(serials) == 1:
+        return serials[0]
+    if len({_physical_id(s) for s in serials}) == 1:
+        # One physical device, multiple transports: prefer USB (faster screencap).
+        return next((s for s in serials if not s.startswith("adb-")), serials[0])
+    raise RuntimeError(
+        f"multiple devices connected: {serials}; set ATEBITS_SERIAL to pick one"
+    )
+
+
+def _adb(*args: str, timeout: int = 30) -> str:
+    return _run("adb", "-s", _serial(), *args, timeout=timeout)
+
+
 def _pid() -> str:
-    return _run("adb", "shell", "pidof", "-s", PACKAGE).strip()
+    return _adb("shell", "pidof", "-s", PACKAGE).strip()
 
 
 def _forward_devtools() -> None:
-    _run("adb", "forward", f"tcp:{DEVTOOLS_PORT}", f"localabstract:webview_devtools_remote_{_pid()}")
+    _adb("forward", f"tcp:{DEVTOOLS_PORT}", f"localabstract:webview_devtools_remote_{_pid()}")
 
 
 def _devtools_targets() -> list[dict]:
@@ -73,10 +106,10 @@ def devices() -> str:
 def launch_app(clear_state: bool = False) -> str:
     """Force-stop and relaunch the Atebits app. clear_state=True also wipes app data
     (SharedPreferences session, cookies) for a from-scratch login test."""
-    _run("adb", "shell", "am", "force-stop", PACKAGE)
+    _adb("shell", "am", "force-stop", PACKAGE)
     if clear_state:
-        _run("adb", "shell", "pm", "clear", PACKAGE)
-    return _run("adb", "shell", "am", "start", "-n", MAIN_ACTIVITY)
+        _adb("shell", "pm", "clear", PACKAGE)
+    return _adb("shell", "am", "start", "-n", MAIN_ACTIVITY)
 
 
 @mcp.tool()
@@ -86,6 +119,8 @@ def install_and_launch() -> str:
     result = subprocess.run(
         ["./gradlew", ":app:installDebug", "-q"],
         cwd=repo_root, capture_output=True, text=True, timeout=600,
+        # AGP respects ANDROID_SERIAL, so installDebug targets the same device
+        env={**os.environ, "ANDROID_SERIAL": _serial()},
     )
     if result.returncode != 0:
         return f"BUILD FAILED:\n{(result.stdout + result.stderr)[-3000:]}"
@@ -95,7 +130,10 @@ def install_and_launch() -> str:
 @mcp.tool()
 def screenshot() -> Image:
     """Capture the device screen as a PNG."""
-    result = subprocess.run(["adb", "exec-out", "screencap", "-p"], capture_output=True, timeout=30)
+    result = subprocess.run(
+        ["adb", "-s", _serial(), "exec-out", "screencap", "-p"],
+        capture_output=True, timeout=30,
+    )
     if result.returncode != 0 or not result.stdout:
         raise RuntimeError(f"screencap failed: {result.stderr.decode()[:300]}")
     return Image(data=result.stdout, format="png")
@@ -105,7 +143,7 @@ def screenshot() -> Image:
 def logcat(lines: int = 150, grep: str = "") -> str:
     """Dump recent logcat output for the app's process. Optional case-insensitive
     substring filter via `grep`."""
-    out = _run("adb", "logcat", "-d", f"--pid={_pid()}")
+    out = _adb("logcat", "-d", f"--pid={_pid()}")
     rows = out.splitlines()
     if grep:
         rows = [r for r in rows if grep.lower() in r.lower()]
@@ -115,7 +153,7 @@ def logcat(lines: int = 150, grep: str = "") -> str:
 @mcp.tool()
 def logcat_clear() -> str:
     """Clear the logcat buffer (useful before reproducing an issue)."""
-    _run("adb", "logcat", "-c")
+    _adb("logcat", "-c")
     return "cleared"
 
 
@@ -155,14 +193,14 @@ async def webview_cdp(method: str, params_json: str = "{}") -> str:
 @mcp.tool()
 def tap(x: int, y: int) -> str:
     """Tap the device screen at physical pixel coordinates (screenshot scale)."""
-    _run("adb", "shell", "input", "tap", str(x), str(y))
+    _adb("shell", "input", "tap", str(x), str(y))
     return f"tapped {x},{y}"
 
 
 @mcp.tool()
 def type_text(text: str) -> str:
     """Type text into the focused field on the device."""
-    _run("adb", "shell", "input", "text", text.replace(" ", "%s"))
+    _adb("shell", "input", "text", text.replace(" ", "%s"))
     return "typed"
 
 

@@ -27,4 +27,11 @@ nothing to install).
   via `WebView.setWebContentsDebuggingEnabled` in `MainActivity`)
 
 Env overrides: `ATEBITS_PACKAGE` (default `dev.bobbrysonn.atebits`),
-`ATEBITS_DEVTOOLS_PORT` (default `9222`).
+`ATEBITS_DEVTOOLS_PORT` (default `9222`), `ATEBITS_SERIAL` (pin a device).
+
+## Device selection
+
+All adb calls pin `-s <serial>`, resolved per call: if one device is attached,
+it's used; if the same phone is attached over both USB and wireless debugging
+(adb lists it twice), the USB transport is preferred; genuinely different
+devices raise an error asking for `ATEBITS_SERIAL`.
