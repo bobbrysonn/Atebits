@@ -204,5 +204,55 @@ def type_text(text: str) -> str:
     return "typed"
 
 
+@mcp.tool()
+def long_press(x: int, y: int, duration_ms: int = 600) -> str:
+    """Long-press the screen at physical pixel coordinates (screenshot scale)."""
+    _adb("shell", "input", "swipe", str(x), str(y), str(x), str(y), str(duration_ms))
+    return f"long-pressed {x},{y} for {duration_ms}ms"
+
+
+@mcp.tool()
+def swipe(x1: int, y1: int, x2: int, y2: int, duration_ms: int = 300) -> str:
+    """Swipe/drag between physical pixel coordinates (screenshot scale). Covers
+    scrolling: e.g. swipe from lower to upper screen to scroll a list down."""
+    _adb("shell", "input", "swipe", str(x1), str(y1), str(x2), str(y2), str(duration_ms))
+    return f"swiped {x1},{y1} -> {x2},{y2}"
+
+
+@mcp.tool()
+def scroll(direction: str = "down", amount: float = 0.6) -> str:
+    """Scroll the screen content. direction is up/down/left/right (down means
+    reveal content further down the page). amount is the fraction of the screen
+    to travel (0-1)."""
+    size = _adb("shell", "wm", "size").rsplit(" ", 1)[-1]  # e.g. "1080x2404"
+    w, h = (int(v) for v in size.split("x"))
+    amount = min(amount, 0.8)  # keep swipe endpoints away from screen-edge gestures
+    cx, cy = w // 2, h // 2
+    dx, dy = 0, 0
+    if direction == "down":
+        dy = -int(h * amount)
+    elif direction == "up":
+        dy = int(h * amount)
+    elif direction == "left":
+        dx = -int(w * amount)
+    elif direction == "right":
+        dx = int(w * amount)
+    else:
+        raise ValueError(f"unknown direction {direction!r}; use up/down/left/right")
+    x1, y1 = cx - dx // 2, cy - dy // 2
+    x2, y2 = cx + dx // 2, cy + dy // 2
+    _adb("shell", "input", "swipe", str(x1), str(y1), str(x2), str(y2), "300")
+    return f"scrolled {direction} by {amount} of screen"
+
+
+@mcp.tool()
+def key(name: str) -> str:
+    """Press a hardware/navigation key. Common names: BACK, HOME, ENTER, TAB,
+    DEL, APP_SWITCH, DPAD_UP/DOWN/LEFT/RIGHT, VOLUME_UP/DOWN, POWER, WAKEUP.
+    Any android KEYCODE_* suffix works."""
+    _adb("shell", "input", "keyevent", f"KEYCODE_{name.upper().removeprefix('KEYCODE_')}")
+    return f"pressed {name.upper()}"
+
+
 if __name__ == "__main__":
     mcp.run()

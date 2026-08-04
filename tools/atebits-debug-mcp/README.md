@@ -17,7 +17,10 @@ nothing to install).
 | `webview_pages` | List WebView DevTools targets (URL + title) |
 | `webview_eval(expression)` | Run JS in the login WebView, return the value |
 | `webview_cdp(method, params_json)` | Raw Chrome DevTools Protocol command |
-| `tap(x, y)` / `type_text(text)` | Basic input injection |
+| `tap(x, y)` / `long_press(x, y, duration_ms)` | Touch injection |
+| `swipe(x1, y1, x2, y2, duration_ms)` | Swipe/drag between points |
+| `scroll(direction, amount)` | Scroll up/down/left/right by screen fraction |
+| `type_text(text)` / `key(name)` | Keyboard input / hardware keys (BACK, ENTER, …) |
 
 ## Requirements
 
