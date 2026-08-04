@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -53,6 +54,8 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.compose.modifiers.resizeWithContentScale
 import androidx.media3.ui.compose.state.rememberPresentationState
+import coil.compose.AsyncImage
+import dev.bobbrysonn.atebits.data.AppSettings
 import dev.bobbrysonn.atebits.data.MediaEntity
 import dev.bobbrysonn.atebits.data.bestVideoUrl
 import dev.bobbrysonn.atebits.ui.components.VideoPlaybackState
@@ -75,7 +78,12 @@ fun VideoViewerScreen(
     val isGif = media.type == "animated_gif"
 
     val player = remember {
-        ExoPlayer.Builder(context).build().apply {
+        // Prefer the live player handed off by the inline card: it opens on the
+        // current frame with dimensions already known, instead of re-buffering.
+        val claimed = VideoPlaybackState.claim(media.id_str)
+        (claimed ?: ExoPlayer.Builder(context).build().apply {
+            // Only a cold-started player takes audio focus; changing audio
+            // attributes on the claimed (playing) one would hiccup playback.
             setAudioAttributes(
                 AudioAttributes.Builder()
                     .setUsage(C.USAGE_MEDIA)
@@ -84,10 +92,11 @@ fun VideoViewerScreen(
                 /* handleAudioFocus = */ true
             )
             setMediaItem(MediaItem.fromUri(videoUrl))
-            if (isGif) repeatMode = Player.REPEAT_MODE_ONE
-            volume = if (VideoPlaybackState.muted || isGif) 0f else 1f
             seekTo(startPositionMs)
             prepare()
+        }).apply {
+            repeatMode = Player.REPEAT_MODE_ONE
+            volume = if (VideoPlaybackState.muted || isGif) 0f else 1f
             playWhenReady = true
         }
     }
@@ -97,7 +106,12 @@ fun VideoViewerScreen(
         VideoPlaybackState.viewerOpen = true
         onDispose {
             VideoPlaybackState.viewerOpen = false
-            player.release()
+            if (AppSettings.autoplayVideos) {
+                // Hand the player back so the inline card resumes seamlessly
+                VideoPlaybackState.stash(media.id_str, player)
+            } else {
+                player.release()
+            }
         }
     }
 
@@ -163,13 +177,35 @@ fun VideoViewerScreen(
             },
         contentAlignment = Alignment.Center
     ) {
+        // Sized from the API's aspect ratio so the layout is right on the first
+        // frame; the poster covers the surface until the decoder catches up.
+        val aspect = media.videoInfo?.aspectRatio
+            ?.takeIf { it.size == 2 && it[0] > 0 && it[1] > 0 }
+            ?.let { (w, h) -> w.toFloat() / h }
+            ?: (16f / 9f)
         val presentationState = rememberPresentationState(player)
-        PlayerSurface(
-            player = player,
+        Box(
             modifier = Modifier
-                .resizeWithContentScale(ContentScale.Fit, presentationState.videoSizeDp)
+                .fillMaxWidth()
+                .aspectRatio(aspect)
                 .offset { IntOffset(0, offsetY.value.roundToInt()) }
-        )
+        ) {
+            PlayerSurface(
+                player = player,
+                modifier = Modifier.resizeWithContentScale(
+                    ContentScale.Fit,
+                    presentationState.videoSizeDp
+                )
+            )
+            if (presentationState.coverSurface) {
+                AsyncImage(
+                    model = media.mediaUrlHttps,
+                    contentDescription = "Video thumbnail",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
+                )
+            }
+        }
 
         Column(
             modifier = Modifier

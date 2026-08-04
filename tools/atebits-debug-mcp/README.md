@@ -12,7 +12,8 @@ nothing to install).
 | `devices` | List connected adb devices |
 | `launch_app(clear_state)` | Force-stop + relaunch; optionally wipe app data |
 | `install_and_launch` | `gradlew :app:installDebug` then relaunch |
-| `screenshot` | Screen capture as PNG |
+| `screenshot(delay_ms)` | Screen capture as PNG, optionally after a settle delay |
+| `tap_and_screenshot(x, y, delay_ms)` | Tap, wait, capture — tight timing for transition checks |
 | `logcat(lines, grep)` / `logcat_clear` | App-process log dump / clear buffer |
 | `webview_pages` | List WebView DevTools targets (URL + title) |
 | `webview_eval(expression)` | Run JS in the login WebView, return the value |

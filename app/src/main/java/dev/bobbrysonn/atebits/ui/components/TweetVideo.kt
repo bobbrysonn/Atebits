@@ -78,10 +78,13 @@ fun TweetVideo(
 
     LaunchedEffect(shouldPlay) {
         if (shouldPlay && player == null) {
+            // Reclaim the player the fullscreen viewer handed back (keeps the
+            // buffered stream and position); otherwise start a fresh one.
             // No audio-focus handling: a muted timeline video must not pause
-            // whatever the user is listening to. The fullscreen viewer takes
-            // focus properly.
-            player = ExoPlayer.Builder(context).build().apply {
+            // whatever the user is listening to.
+            player = VideoPlaybackState.claim(media.id_str)?.apply {
+                repeatMode = Player.REPEAT_MODE_ONE
+            } ?: ExoPlayer.Builder(context).build().apply {
                 setMediaItem(MediaItem.fromUri(videoUrl))
                 repeatMode = Player.REPEAT_MODE_ONE
                 prepare()
@@ -131,7 +134,17 @@ fun TweetVideo(
             .clip(RoundedCornerShape(16.dp))
             .background(Color.Black)
             .onVisibilityChanged(minFractionVisible = 0.5f) { visible = it }
-            .clickable { onVideoClick(media, player?.currentPosition ?: 0L) }
+            .clickable {
+                // Hand the live player to the fullscreen viewer so it opens on
+                // the current frame instead of re-buffering the stream.
+                val current = player
+                val positionMs = current?.currentPosition ?: 0L
+                if (current != null) {
+                    VideoPlaybackState.stash(media.id_str, current)
+                    player = null
+                }
+                onVideoClick(media, positionMs)
+            }
     ) {
         val activePlayer = player
         if (activePlayer != null) {

@@ -12,6 +12,7 @@ import asyncio
 import json
 import os
 import subprocess
+import time
 import urllib.request
 
 from mcp.server import MCPServer
@@ -127,9 +128,7 @@ def install_and_launch() -> str:
     return launch_app()
 
 
-@mcp.tool()
-def screenshot() -> Image:
-    """Capture the device screen as a PNG."""
+def _screencap() -> Image:
     result = subprocess.run(
         ["adb", "-s", _serial(), "exec-out", "screencap", "-p"],
         capture_output=True, timeout=30,
@@ -137,6 +136,25 @@ def screenshot() -> Image:
     if result.returncode != 0 or not result.stdout:
         raise RuntimeError(f"screencap failed: {result.stderr.decode()[:300]}")
     return Image(data=result.stdout, format="png")
+
+
+@mcp.tool()
+def screenshot(delay_ms: int = 0) -> Image:
+    """Capture the device screen as a PNG. delay_ms waits first — use it to let
+    the UI settle after an action instead of sleeping between tool calls."""
+    if delay_ms > 0:
+        time.sleep(min(delay_ms, 10_000) / 1000)
+    return _screencap()
+
+
+@mcp.tool()
+def tap_and_screenshot(x: int, y: int, delay_ms: int = 800) -> Image:
+    """Tap at physical pixel coordinates, wait delay_ms, then capture the screen.
+    One round-trip, so the tap-to-capture timing is tight — use for verifying
+    transitions/latency after a tap."""
+    _adb("shell", "input", "tap", str(x), str(y))
+    time.sleep(min(delay_ms, 10_000) / 1000)
+    return _screencap()
 
 
 @mcp.tool()
