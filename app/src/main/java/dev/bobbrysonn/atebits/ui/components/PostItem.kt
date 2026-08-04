@@ -4,6 +4,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -34,6 +35,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import dev.bobbrysonn.atebits.data.TweetResult
+import dev.bobbrysonn.atebits.data.displayAspectRatio
 import dev.bobbrysonn.atebits.data.displayText
 import dev.bobbrysonn.atebits.data.isVideo
 import dev.bobbrysonn.atebits.data.unwrapDisplayable
@@ -128,7 +130,7 @@ fun PostItem(
                     contentDescription = "Tweet Image",
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(200.dp)
+                        .aspectRatio(firstMedia.displayAspectRatio())
                         .clip(RoundedCornerShape(16.dp))
                         .clickable { onImageClick(imageUrl) },
                     contentScale = ContentScale.Crop
@@ -250,7 +252,7 @@ private fun QuotedTweet(
                 contentDescription = "Quoted Tweet Image",
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(160.dp)
+                    .aspectRatio(firstMedia.displayAspectRatio())
                     .clip(RoundedCornerShape(12.dp))
                     .clickable { onImageClick(imageUrl) },
                 contentScale = ContentScale.Crop

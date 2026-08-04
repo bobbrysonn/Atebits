@@ -176,6 +176,14 @@ data class VideoVariant(
 val MediaEntity.isVideo: Boolean
     get() = type == "video" || type == "animated_gif"
 
+// Natural width/height ratio for layout, floored at 9:16 so extremely tall
+// images get cropped instead of dominating the timeline.
+fun MediaEntity.displayAspectRatio(): Float =
+    originalInfo?.takeIf { it.width > 0 && it.height > 0 }
+        ?.let { it.width.toFloat() / it.height }
+        ?.coerceAtLeast(9f / 16f)
+        ?: (16f / 9f)
+
 // Highest-bitrate progressive MP4; skips HLS playlists so playback needs no
 // extra ExoPlayer modules.
 fun MediaEntity.bestVideoUrl(): String? =
