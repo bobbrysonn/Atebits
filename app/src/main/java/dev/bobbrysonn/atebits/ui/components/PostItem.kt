@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import dev.bobbrysonn.atebits.data.TweetResult
 import dev.bobbrysonn.atebits.data.displayText
+import dev.bobbrysonn.atebits.data.isVideo
 import dev.bobbrysonn.atebits.data.unwrapDisplayable
 import java.time.Duration
 import java.time.Instant
@@ -115,17 +116,21 @@ fun PostItem(
                 color = MaterialTheme.colorScheme.onSurface
             )
 
-            val firstImageUrl = media?.firstOrNull()?.mediaUrlHttps
-            if (firstImageUrl != null) {
+            val firstMedia = media?.firstOrNull()
+            if (firstMedia?.isVideo == true) {
+                Spacer(modifier = Modifier.height(12.dp))
+                TweetVideo(media = firstMedia)
+            } else if (firstMedia?.mediaUrlHttps != null) {
+                val imageUrl = firstMedia.mediaUrlHttps
                 Spacer(modifier = Modifier.height(12.dp))
                 AsyncImage(
-                    model = firstImageUrl,
+                    model = imageUrl,
                     contentDescription = "Tweet Image",
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(200.dp)
                         .clip(RoundedCornerShape(16.dp))
-                        .clickable { onImageClick(firstImageUrl) },
+                        .clickable { onImageClick(imageUrl) },
                     contentScale = ContentScale.Crop
                 )
             }
@@ -233,17 +238,21 @@ private fun QuotedTweet(
             color = MaterialTheme.colorScheme.onSurface
         )
 
-        val firstImageUrl = media?.firstOrNull()?.mediaUrlHttps
-        if (firstImageUrl != null) {
+        val firstMedia = media?.firstOrNull()
+        if (firstMedia?.isVideo == true) {
+            Spacer(modifier = Modifier.height(8.dp))
+            TweetVideo(media = firstMedia)
+        } else if (firstMedia?.mediaUrlHttps != null) {
+            val imageUrl = firstMedia.mediaUrlHttps
             Spacer(modifier = Modifier.height(8.dp))
             AsyncImage(
-                model = firstImageUrl,
+                model = imageUrl,
                 contentDescription = "Quoted Tweet Image",
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(160.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .clickable { onImageClick(firstImageUrl) },
+                    .clickable { onImageClick(imageUrl) },
                 contentScale = ContentScale.Crop
             )
         }

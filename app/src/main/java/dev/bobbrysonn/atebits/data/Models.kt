@@ -152,10 +152,37 @@ data class UrlEntity(
 data class MediaEntity(
     val id_str: String? = null,
     val url: String? = null, // the t.co link occupying the tweet text
+    // For videos/gifs this is the poster frame; the streams are in video_info
     @SerialName("media_url_https") val mediaUrlHttps: String? = null,
-    val type: String? = null,
-    @SerialName("original_info") val originalInfo: MediaOriginalInfo? = null
+    val type: String? = null, // "photo", "video", or "animated_gif"
+    @SerialName("original_info") val originalInfo: MediaOriginalInfo? = null,
+    @SerialName("video_info") val videoInfo: VideoInfo? = null
 )
+
+@Serializable
+data class VideoInfo(
+    @SerialName("aspect_ratio") val aspectRatio: List<Int>? = null,
+    @SerialName("duration_millis") val durationMillis: Long? = null,
+    val variants: List<VideoVariant> = emptyList()
+)
+
+@Serializable
+data class VideoVariant(
+    val bitrate: Long? = null,
+    @SerialName("content_type") val contentType: String? = null,
+    val url: String? = null
+)
+
+val MediaEntity.isVideo: Boolean
+    get() = type == "video" || type == "animated_gif"
+
+// Highest-bitrate progressive MP4; skips HLS playlists so playback needs no
+// extra ExoPlayer modules.
+fun MediaEntity.bestVideoUrl(): String? =
+    videoInfo?.variants
+        ?.filter { it.contentType == "video/mp4" && it.url != null }
+        ?.maxByOrNull { it.bitrate ?: 0 }
+        ?.url
 
 @Serializable
 data class MediaOriginalInfo(
