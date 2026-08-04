@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "atebits-debug": {
+      "command": "uv",
+      "args": ["run", "--script", "tools/atebits-debug-mcp/server.py"]
+    }
+  }
+}
