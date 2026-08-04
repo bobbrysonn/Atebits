@@ -32,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import dev.bobbrysonn.atebits.data.TweetResult
+import dev.bobbrysonn.atebits.data.displayText
 import java.time.Duration
 import java.time.Instant
 import java.time.ZonedDateTime
@@ -106,7 +107,7 @@ fun PostItem(
             Spacer(modifier = Modifier.height(12.dp))
 
             Text(
-                text = tweetContent?.fullText ?: "",
+                text = tweetContent?.displayText() ?: "",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface
             )

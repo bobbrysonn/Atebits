@@ -128,12 +128,21 @@ data class TweetLegacy(
 
 @Serializable
 data class TweetEntities(
-    val media: List<MediaEntity>? = null
+    val media: List<MediaEntity>? = null,
+    val urls: List<UrlEntity>? = null
+)
+
+@Serializable
+data class UrlEntity(
+    val url: String? = null,
+    @SerialName("expanded_url") val expandedUrl: String? = null,
+    @SerialName("display_url") val displayUrl: String? = null
 )
 
 @Serializable
 data class MediaEntity(
     val id_str: String? = null,
+    val url: String? = null, // the t.co link occupying the tweet text
     @SerialName("media_url_https") val mediaUrlHttps: String? = null,
     val type: String? = null,
     @SerialName("original_info") val originalInfo: MediaOriginalInfo? = null
@@ -144,3 +153,17 @@ data class MediaOriginalInfo(
     val width: Int = 0,
     val height: Int = 0
 )
+
+// full_text contains raw t.co links: replace linked URLs with their readable
+// display form and strip media links entirely (the media renders separately).
+fun TweetLegacy.displayText(): String {
+    var text = fullText ?: return ""
+    entities?.urls?.forEach { entity ->
+        val tco = entity.url ?: return@forEach
+        text = text.replace(tco, entity.displayUrl ?: entity.expandedUrl ?: tco)
+    }
+    val mediaLinks = (extendedEntities?.media ?: entities?.media)
+        .orEmpty().mapNotNull { it.url }.distinct()
+    mediaLinks.forEach { text = text.replace(it, "") }
+    return text.trim()
+}
