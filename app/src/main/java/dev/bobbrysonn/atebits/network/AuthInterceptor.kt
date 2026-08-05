@@ -22,15 +22,13 @@ class AuthInterceptor(private val authRepository: AuthRepository) : Interceptor 
             builder.header("content-type", "application/json")
             builder.header("referer", "https://x.com/")
             builder.header("x-twitter-active-user", "yes")
+            builder.header("x-twitter-auth-type", "OAuth2Session")
             builder.header("x-twitter-client-language", "en")
             builder.header("priority", "u=1, i")
-            
-            // Add Transaction ID
-            val path = originalRequest.url.encodedPath
-            val transactionId = TransactionIdHelper().getTransactionId(path)
-            if (transactionId != null) {
-                builder.header("x-client-transaction-id", transactionId)
-            }
+            // No x-client-transaction-id: the third-party generator service
+            // this app relied on is dead (parked domain), so the header was
+            // never actually sent — and the blocking lookup added a wasted
+            // round-trip to every single API call.
         }
 
         val response = chain.proceed(builder.build())
