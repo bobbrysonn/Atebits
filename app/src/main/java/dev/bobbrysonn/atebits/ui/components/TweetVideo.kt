@@ -36,10 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.media3.common.MediaItem
-import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.compose.modifiers.resizeWithContentScale
 import androidx.media3.ui.compose.state.rememberPresentationState
@@ -73,43 +70,44 @@ fun TweetVideo(
     val context = LocalContext.current
 
     var visible by remember { mutableStateOf(false) }
-    var player by remember { mutableStateOf<ExoPlayer?>(null) }
+    var lease by remember { mutableStateOf<VideoPlayerPool.Lease?>(null) }
+    val scrolling by LocalListScrollInProgress.current
     val shouldPlay = AppSettings.autoplayVideos && visible && !VideoPlaybackState.viewerOpen
 
-    LaunchedEffect(shouldPlay) {
-        if (shouldPlay && player == null) {
-            // Reclaim the player the fullscreen viewer handed back (keeps the
-            // buffered stream and position); otherwise start a fresh one.
-            // No audio-focus handling: a muted timeline video must not pause
-            // whatever the user is listening to.
-            player = VideoPlaybackState.claim(media.id_str)?.apply {
-                repeatMode = Player.REPEAT_MODE_ONE
-            } ?: ExoPlayer.Builder(context).build().apply {
-                setMediaItem(MediaItem.fromUri(videoUrl))
-                repeatMode = Player.REPEAT_MODE_ONE
-                prepare()
-            }
+    LaunchedEffect(shouldPlay, scrolling) {
+        if (shouldPlay && lease == null && !scrolling) {
+            // Only build a player once the list settles (the effect restarts
+            // and cancels this delay if scrolling resumes), so flings stay on
+            // the cheap poster path.
+            delay(150)
+            lease = VideoPlayerPool.acquire(context, media.id_str ?: videoUrl, videoUrl)
         }
-        player?.playWhenReady = shouldPlay
+        if (!shouldPlay) {
+            // Free the slot for other videos; the pool keeps the media bound,
+            // so scrolling back resumes from the same position.
+            lease?.let { VideoPlayerPool.release(it) }
+            lease = null
+        }
+        lease?.player?.playWhenReady = shouldPlay
     }
 
-    LaunchedEffect(player, VideoPlaybackState.muted) {
-        player?.volume = if (isGif || VideoPlaybackState.muted) 0f else 1f
+    LaunchedEffect(lease, VideoPlaybackState.muted) {
+        lease?.player?.volume = if (isGif || VideoPlaybackState.muted) 0f else 1f
     }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_PAUSE -> player?.playWhenReady = false
-                Lifecycle.Event.ON_RESUME -> player?.playWhenReady = shouldPlay
+                Lifecycle.Event.ON_PAUSE -> lease?.player?.playWhenReady = false
+                Lifecycle.Event.ON_RESUME -> lease?.player?.playWhenReady = shouldPlay
                 else -> {}
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
-            player?.release()
+            lease?.let { VideoPlayerPool.release(it) }
         }
     }
 
@@ -117,8 +115,13 @@ fun TweetVideo(
     var remainingMs by remember {
         mutableLongStateOf(media.videoInfo?.durationMillis ?: 0L)
     }
-    LaunchedEffect(player, shouldPlay) {
-        val p = player ?: return@LaunchedEffect
+    LaunchedEffect(lease, shouldPlay) {
+        val p = lease?.player
+        if (p == null || !shouldPlay) {
+            // No ticking for posters or paused videos — one static value
+            remainingMs = media.videoInfo?.durationMillis ?: 0L
+            return@LaunchedEffect
+        }
         while (isActive) {
             val duration = p.duration.takeIf { it > 0 }
                 ?: media.videoInfo?.durationMillis ?: 0L
@@ -136,17 +139,15 @@ fun TweetVideo(
             .onVisibilityChanged(minFractionVisible = 0.5f) { visible = it }
             .clickable {
                 // Hand the live player to the fullscreen viewer so it opens on
-                // the current frame instead of re-buffering the stream.
-                val current = player
-                val positionMs = current?.currentPosition ?: 0L
-                if (current != null) {
-                    VideoPlaybackState.stash(media.id_str, current)
-                    player = null
-                }
+                // the current frame instead of re-buffering: drop our lease
+                // WITHOUT releasing (releasing would pause mid-handoff) and let
+                // the viewer re-acquire the same pool slot by mediaId.
+                val positionMs = lease?.player?.currentPosition ?: 0L
+                lease = null
                 VideoPlaybackState.fullscreenVideo = media to positionMs
             }
     ) {
-        val activePlayer = player
+        val activePlayer = lease?.player
         if (activePlayer != null) {
             val presentationState = rememberPresentationState(activePlayer)
             PlayerSurface(

@@ -31,7 +31,9 @@ import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -58,6 +60,7 @@ import dev.bobbrysonn.atebits.data.UserLegacy
 import dev.bobbrysonn.atebits.data.bigAvatarUrl
 import dev.bobbrysonn.atebits.data.toLegacy
 import dev.bobbrysonn.atebits.ui.components.ConversationPost
+import dev.bobbrysonn.atebits.ui.components.LocalListScrollInProgress
 import dev.bobbrysonn.atebits.ui.components.PostItem
 import dev.bobbrysonn.atebits.ui.components.formatCount
 import java.time.ZonedDateTime
@@ -120,89 +123,95 @@ fun ProfileScreen(
     }
 
     val listState = rememberLazyListState()
+    // TweetVideo defers player creation until scrolling settles
+    val scrollInProgress = remember(listState) {
+        derivedStateOf { listState.isScrollInProgress }
+    }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
-            // Keys must be unique across the whole list; the fixed slots use
-            // non-numeric strings so they can't collide with tweet ids.
-            item(key = "header", contentType = "header") { ProfileHeader(user) }
-            item(key = "info", contentType = "info") { ProfileInfo(user) }
-            item(key = "tabs", contentType = "tabs") {
-                PrimaryTabRow(
-                    selectedTabIndex = tabIndex,
-                    containerColor = Color.Transparent,
-                    modifier = Modifier.padding(top = 8.dp)
-                ) {
-                    ProfileTab.entries.forEachIndexed { index, tab ->
-                        Tab(
-                            selected = tabIndex == index,
-                            onClick = { tabIndex = index },
-                            text = { Text(tab.label) }
-                        )
-                    }
-                }
-            }
-            val rows = tabItems[selectedTab].orEmpty()
-            when {
-                tabLoading && rows.isEmpty() -> item(key = "tab-loading", contentType = "tab-loading") {
-                    Box(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
-                        contentAlignment = Alignment.Center
+    CompositionLocalProvider(LocalListScrollInProgress provides scrollInProgress) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+                // Keys must be unique across the whole list; the fixed slots use
+                // non-numeric strings so they can't collide with tweet ids.
+                item(key = "header", contentType = "header") { ProfileHeader(user) }
+                item(key = "info", contentType = "info") { ProfileInfo(user) }
+                item(key = "tabs", contentType = "tabs") {
+                    PrimaryTabRow(
+                        selectedTabIndex = tabIndex,
+                        containerColor = Color.Transparent,
+                        modifier = Modifier.padding(top = 8.dp)
                     ) {
-                        LoadingIndicator()
-                    }
-                }
-                tabErrors[selectedTab] != null -> item(key = "tab-error", contentType = "tab-error") {
-                    Text(
-                        text = "Couldn't load ${selectedTab.label.lowercase()}: ${tabErrors[selectedTab]}",
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(16.dp)
-                    )
-                }
-                else -> items(
-                    rows,
-                    key = { it.tweets.firstOrNull()?.rest_id ?: it.hashCode() },
-                    contentType = { if (it.tweets.size > 1) "conversation" else "tweet" }
-                ) { item ->
-                    if (item.tweets.size > 1) {
-                        ConversationPost(
-                            tweets = item.tweets,
-                            onImageClick = { url -> selectedImageUrl = url },
-                            onTweetClick = onTweetClick
-                        )
-                    } else {
-                        item.tweets.firstOrNull()?.let { tweet ->
-                            PostItem(
-                                tweet = tweet,
-                                onImageClick = { url -> selectedImageUrl = url },
-                                onTweetClick = onTweetClick
+                        ProfileTab.entries.forEachIndexed { index, tab ->
+                            Tab(
+                                selected = tabIndex == index,
+                                onClick = { tabIndex = index },
+                                text = { Text(tab.label) }
                             )
                         }
                     }
                 }
+                val rows = tabItems[selectedTab].orEmpty()
+                when {
+                    tabLoading && rows.isEmpty() -> item(key = "tab-loading", contentType = "tab-loading") {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            LoadingIndicator()
+                        }
+                    }
+                    tabErrors[selectedTab] != null -> item(key = "tab-error", contentType = "tab-error") {
+                        Text(
+                            text = "Couldn't load ${selectedTab.label.lowercase()}: ${tabErrors[selectedTab]}",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    }
+                    else -> items(
+                        rows,
+                        key = { it.tweets.firstOrNull()?.rest_id ?: it.hashCode() },
+                        contentType = { if (it.tweets.size > 1) "conversation" else "tweet" }
+                    ) { item ->
+                        if (item.tweets.size > 1) {
+                            ConversationPost(
+                                tweets = item.tweets,
+                                onImageClick = { url -> selectedImageUrl = url },
+                                onTweetClick = onTweetClick
+                            )
+                        } else {
+                            item.tweets.firstOrNull()?.let { tweet ->
+                                PostItem(
+                                    tweet = tweet,
+                                    onImageClick = { url -> selectedImageUrl = url },
+                                    onTweetClick = onTweetClick
+                                )
+                            }
+                        }
+                    }
+                }
             }
-        }
 
-        FilledIconButton(
-            onClick = onBack,
-            colors = IconButtonDefaults.filledIconButtonColors(
-                containerColor = Color.Black.copy(alpha = 0.5f),
-                contentColor = Color.White
-            ),
-            modifier = Modifier.padding(12.dp)
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Back"
-            )
-        }
+            FilledIconButton(
+                onClick = onBack,
+                colors = IconButtonDefaults.filledIconButtonColors(
+                    containerColor = Color.Black.copy(alpha = 0.5f),
+                    contentColor = Color.White
+                ),
+                modifier = Modifier.padding(12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back"
+                )
+            }
 
-        if (selectedImageUrl != null) {
-            ImageViewerScreen(
-                imageUrl = selectedImageUrl!!,
-                onDismiss = { selectedImageUrl = null }
-            )
+            if (selectedImageUrl != null) {
+                ImageViewerScreen(
+                    imageUrl = selectedImageUrl!!,
+                    onDismiss = { selectedImageUrl = null }
+                )
+            }
         }
     }
 }

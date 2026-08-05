@@ -14,6 +14,7 @@ import dev.bobbrysonn.atebits.data.AppSettings
 import dev.bobbrysonn.atebits.data.AuthRepository
 import dev.bobbrysonn.atebits.data.SessionEvents
 import dev.bobbrysonn.atebits.network.TransactionIdGenerator
+import dev.bobbrysonn.atebits.ui.components.VideoPlayerPool
 import dev.bobbrysonn.atebits.ui.screens.LoginScreen
 import dev.bobbrysonn.atebits.ui.screens.MainScreen
 import dev.bobbrysonn.atebits.ui.theme.AtebitsTheme
@@ -62,5 +63,12 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        // Pooled players (and their hardware codecs) live app-scoped so they
+        // survive configuration changes; tear them down only on a real finish.
+        if (isFinishing) VideoPlayerPool.releaseAll()
+        super.onDestroy()
     }
 }

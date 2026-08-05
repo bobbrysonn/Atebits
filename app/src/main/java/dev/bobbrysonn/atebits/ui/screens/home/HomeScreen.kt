@@ -32,6 +32,8 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -63,6 +65,7 @@ import dev.bobbrysonn.atebits.data.TimelineRepository
 import dev.bobbrysonn.atebits.data.TweetCache
 import dev.bobbrysonn.atebits.data.TweetResult
 import dev.bobbrysonn.atebits.data.avatarUrl
+import dev.bobbrysonn.atebits.ui.components.LocalListScrollInProgress
 import dev.bobbrysonn.atebits.ui.components.PostItem
 import dev.bobbrysonn.atebits.ui.screens.ImageViewerScreen
 import kotlin.math.roundToInt
@@ -143,40 +146,47 @@ fun HomeScreen(
                 LoadingIndicator()
             }
         } else {
-            PullToRefreshBox(
-                isRefreshing = viewModel.isRefreshing,
-                onRefresh = { viewModel.refreshTweets() },
-                state = pullRefreshState,
-                modifier = Modifier.fillMaxSize(),
-                indicator = {
-                    // Default position is the box top, which the header covers
-                    PullToRefreshDefaults.Indicator(
-                        state = pullRefreshState,
-                        isRefreshing = viewModel.isRefreshing,
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .padding(top = HeaderHeight)
-                    )
-                }
-            ) {
-                LazyColumn(
-                    state = listState,
+            // TweetVideo defers player creation until scrolling settles
+            val scrollInProgress = remember(listState) {
+                derivedStateOf { listState.isScrollInProgress }
+            }
+            CompositionLocalProvider(LocalListScrollInProgress provides scrollInProgress) {
+                PullToRefreshBox(
+                    isRefreshing = viewModel.isRefreshing,
+                    onRefresh = { viewModel.refreshTweets() },
+                    state = pullRefreshState,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(top = HeaderHeight)
-                ) {
-                    // Stable keys keep item state (expansion, video) with its tweet
-                    // across refresh prepends, and anchor the viewport instead of
-                    // jumping; contentType lets the list reuse tweet slots.
-                    items(
-                        viewModel.tweets,
-                        key = { it.rest_id ?: it.tweet?.rest_id ?: it.hashCode() },
-                        contentType = { "tweet" }
-                    ) { tweet ->
-                        PostItem(
-                            tweet = tweet,
-                            onImageClick = { url -> selectedImageUrl = url },
-                            onTweetClick = onTweetClick
+                    indicator = {
+                        // Default position is the box top, which the header covers
+                        PullToRefreshDefaults.Indicator(
+                            state = pullRefreshState,
+                            isRefreshing = viewModel.isRefreshing,
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .padding(top = HeaderHeight)
                         )
+                    }
+                ) {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(top = HeaderHeight)
+                    ) {
+                        // Stable keys keep item state (expansion, video) with its
+                        // tweet across refresh prepends, and anchor the viewport
+                        // instead of jumping; contentType lets the list reuse
+                        // tweet slots.
+                        items(
+                            viewModel.tweets,
+                            key = { it.rest_id ?: it.tweet?.rest_id ?: it.hashCode() },
+                            contentType = { "tweet" }
+                        ) { tweet ->
+                            PostItem(
+                                tweet = tweet,
+                                onImageClick = { url -> selectedImageUrl = url },
+                                onTweetClick = onTweetClick
+                            )
+                        }
                     }
                 }
             }

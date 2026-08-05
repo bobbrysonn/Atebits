@@ -47,18 +47,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
-import androidx.media3.common.MediaItem
-import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.compose.modifiers.resizeWithContentScale
 import androidx.media3.ui.compose.state.rememberPresentationState
 import coil.compose.AsyncImage
-import dev.bobbrysonn.atebits.data.AppSettings
 import dev.bobbrysonn.atebits.data.MediaEntity
 import dev.bobbrysonn.atebits.data.bestVideoUrl
 import dev.bobbrysonn.atebits.ui.components.VideoPlaybackState
+import dev.bobbrysonn.atebits.ui.components.VideoPlayerPool
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -77,41 +74,37 @@ fun VideoViewerScreen(
     val context = LocalContext.current
     val isGif = media.type == "animated_gif"
 
-    val player = remember {
-        // Prefer the live player handed off by the inline card: it opens on the
-        // current frame with dimensions already known, instead of re-buffering.
-        val claimed = VideoPlaybackState.claim(media.id_str)
-        (claimed ?: ExoPlayer.Builder(context).build().apply {
-            // Only a cold-started player takes audio focus; changing audio
-            // attributes on the claimed (playing) one would hiccup playback.
-            setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(C.USAGE_MEDIA)
-                    .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
-                    .build(),
-                /* handleAudioFocus = */ true
-            )
-            setMediaItem(MediaItem.fromUri(videoUrl))
-            seekTo(startPositionMs)
-            prepare()
-        }).apply {
-            repeatMode = Player.REPEAT_MODE_ONE
-            volume = if (VideoPlaybackState.muted || isGif) 0f else 1f
-            playWhenReady = true
+    val lease = remember {
+        // The pool hands back the inline card's live player when there is one
+        // (same mediaId): the viewer opens on the current frame with dimensions
+        // already known, instead of re-buffering.
+        VideoPlayerPool.acquire(context, media.id_str ?: videoUrl, videoUrl).apply {
+            if (freshlyPrepared) {
+                // Only a cold-started player takes audio focus; changing audio
+                // attributes on a live (playing) one would hiccup playback.
+                player.setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(C.USAGE_MEDIA)
+                        .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
+                        .build(),
+                    /* handleAudioFocus = */ true
+                )
+                player.seekTo(startPositionMs)
+            }
+            player.volume = if (VideoPlaybackState.muted || isGif) 0f else 1f
+            player.playWhenReady = true
         }
     }
+    val player = lease.player
 
     // Tell inline timeline players to stand down while the viewer owns playback
     DisposableEffect(Unit) {
         VideoPlaybackState.viewerOpen = true
         onDispose {
             VideoPlaybackState.viewerOpen = false
-            if (AppSettings.autoplayVideos) {
-                // Hand the player back so the inline card resumes seamlessly
-                VideoPlaybackState.stash(media.id_str, player)
-            } else {
-                player.release()
-            }
+            // Back to the pool, still bound to this media: with autoplay on,
+            // the inline card re-acquires the same slot and resumes seamlessly.
+            VideoPlayerPool.release(lease)
         }
     }
 
