@@ -32,10 +32,11 @@ interface HomeTimelineApi {
         @Query("features") features: String
     ): UserResponse
 
-    @GET("/i/api/graphql/nRybED9kRbN-TOWioHq1ng/Likes")
+    @GET("/i/api/graphql/BEthBswU1Bt209H5xptp4Q/Likes")
     suspend fun getUserLikes(
         @Query("variables") variables: String,
-        @Query("features") features: String
+        @Query("features") features: String,
+        @Query("fieldToggles") fieldToggles: String
     ): UserResponse
 
     @GET("/i/api/graphql/W4Tpu1uueTGK53paUgxF0Q/HomeTimeline")

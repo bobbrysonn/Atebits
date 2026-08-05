@@ -92,7 +92,10 @@ class TimelineRepository(private val authRepository: AuthRepository) {
                     api.getUserTweetsAndReplies(repliesVariables, WEB_2026_FEATURES, WEB_2026_FIELD_TOGGLES)
                 }
                 ProfileTab.Media -> api.getUserMedia(variables, TIMELINE_FEATURES)
-                ProfileTab.Likes -> api.getUserLikes(variables, TIMELINE_FEATURES)
+                ProfileTab.Likes -> {
+                    val likesVariables = "{\"userId\":\"$userId\",\"count\":20,\"includePromotedContent\":false,\"withClientEventToken\":false,\"withBirdwatchNotes\":false,\"withVoice\":true}"
+                    api.getUserLikes(likesVariables, WEB_2026_FEATURES, WEB_2026_FIELD_TOGGLES)
+                }
             }
             val items = mutableListOf<ProfileTimelineItem>()
             val result = response.data?.user?.result

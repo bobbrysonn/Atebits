@@ -17,10 +17,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.material.icons.outlined.ModeComment
-import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -181,23 +177,7 @@ private fun ThreadedTweet(
             }
 
             Spacer(modifier = Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(32.dp)) {
-                TweetAction(
-                    icon = Icons.Outlined.ModeComment,
-                    count = tweetContent?.replyCount ?: 0,
-                    contentDescription = "Replies"
-                )
-                TweetAction(
-                    icon = Icons.Outlined.Repeat,
-                    count = tweetContent?.retweetCount ?: 0,
-                    contentDescription = "Retweets"
-                )
-                TweetAction(
-                    icon = Icons.Outlined.FavoriteBorder,
-                    count = tweetContent?.favoriteCount ?: 0,
-                    contentDescription = "Likes"
-                )
-            }
+            TweetActionRow(tweetContent)
         }
     }
 }

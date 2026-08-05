@@ -156,32 +156,44 @@ fun PostItem(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                TweetAction(
-                    icon = Icons.Outlined.ModeComment,
-                    count = tweetContent?.replyCount ?: 0,
-                    contentDescription = "Replies"
-                )
-                TweetAction(
-                    icon = Icons.Outlined.Repeat,
-                    count = tweetContent?.retweetCount ?: 0,
-                    contentDescription = "Retweets"
-                )
-                TweetAction(
-                    icon = Icons.Outlined.FavoriteBorder,
-                    count = tweetContent?.favoriteCount ?: 0,
-                    contentDescription = "Likes"
-                )
-                TweetAction(
-                    icon = Icons.Outlined.IosShare,
-                    count = null,
-                    contentDescription = "Share"
-                )
-            }
+            TweetActionRow(tweetContent)
         }
+    }
+}
+
+/**
+ * Reply/retweet/like counts plus share, spread evenly across the card. Shared
+ * by every tweet surface so the row sits identically wherever it appears.
+ */
+@Composable
+fun TweetActionRow(
+    tweetContent: dev.bobbrysonn.atebits.data.TweetLegacy?,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        TweetAction(
+            icon = Icons.Outlined.ModeComment,
+            count = tweetContent?.replyCount ?: 0,
+            contentDescription = "Replies"
+        )
+        TweetAction(
+            icon = Icons.Outlined.Repeat,
+            count = tweetContent?.retweetCount ?: 0,
+            contentDescription = "Retweets"
+        )
+        TweetAction(
+            icon = Icons.Outlined.FavoriteBorder,
+            count = tweetContent?.favoriteCount ?: 0,
+            contentDescription = "Likes"
+        )
+        TweetAction(
+            icon = Icons.Outlined.IosShare,
+            count = null,
+            contentDescription = "Share"
+        )
     }
 }
 
