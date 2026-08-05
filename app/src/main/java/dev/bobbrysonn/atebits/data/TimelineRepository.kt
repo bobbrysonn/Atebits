@@ -31,39 +31,82 @@ class TimelineRepository(private val authRepository: AuthRepository) {
 
     private val api = retrofit.create(HomeTimelineApi::class.java)
 
-    suspend fun getCurrentUser(): UserProfile {
-        val userId = authRepository.getUserId()
-            ?: throw IllegalStateException("no twid cookie in session")
+    companion object {
+        // Feature flags from QuaX client.dart, shared by the timeline-shaped
+        // GraphQL queries (HomeTimeline, TweetDetail, UserTweets)
+        private const val TIMELINE_FEATURES = "{\"rweb_lists_timeline_redesign_enabled\":true,\"responsive_web_graphql_exclude_directive_enabled\":true,\"verified_phone_label_enabled\":true,\"creator_subscriptions_tweet_preview_api_enabled\":true,\"responsive_web_graphql_timeline_navigation_enabled\":true,\"responsive_web_graphql_skip_user_profile_image_extensions_enabled\":false,\"tweetypie_unmention_optimization_enabled\":true,\"responsive_web_edit_tweet_api_enabled\":true,\"graphql_is_translatable_rweb_tweet_is_translatable_enabled\":true,\"view_counts_everywhere_api_enabled\":true,\"longform_notetweets_consumption_enabled\":true,\"responsive_web_twitter_article_tweet_consumption_enabled\":false,\"tweet_awards_web_tipping_enabled\":false,\"freedom_of_speech_not_reach_fetch_enabled\":true,\"standardized_nudges_misinfo\":true,\"tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled\":true,\"longform_notetweets_rich_text_read_enabled\":true,\"longform_notetweets_inline_media_enabled\":true,\"responsive_web_media_download_video_enabled\":false,\"responsive_web_enhance_cards_enabled\":false}"
+    }
+
+    suspend fun getUserProfile(userId: String): UserResult? {
         try {
             val variables = "{\"userId\":\"$userId\",\"withSafetyModeUserFields\":true}"
             val features = "{\"hidden_profile_likes_enabled\":false,\"responsive_web_graphql_exclude_directive_enabled\":true,\"verified_phone_label_enabled\":true,\"highlights_tweets_tab_ui_enabled\":true,\"creator_subscriptions_tweet_preview_api_enabled\":true,\"responsive_web_graphql_skip_user_profile_image_extensions_enabled\":false,\"responsive_web_graphql_timeline_navigation_enabled\":true}"
-            val user = api.getUserByRestId(variables, features).data?.user?.result?.legacy
-            return UserProfile(
-                name = user?.name,
-                screenName = user?.screenName,
-                profileImageUrlHttps = user?.profileImageUrlHttps
-            )
+            return api.getUserByRestId(variables, features).data?.user?.result
         } catch (e: retrofit2.HttpException) {
             // Feature-set/query-id errors come back as 400s with a JSON body
             // naming the problem — surface it for logcat debugging.
-            val body = e.response()?.errorBody()?.string()?.take(500)
-            println("TimelineRepository: UserByRestId ${e.code()}: $body")
+            println("TimelineRepository: UserByRestId ${e.code()}: ${e.errorSnippet()}")
             throw e
         }
     }
+
+    suspend fun getCurrentUser(): UserProfile {
+        val userId = authRepository.getUserId()
+            ?: throw IllegalStateException("no twid cookie in session")
+        val user = getUserProfile(userId)?.legacy
+        return UserProfile(
+            name = user?.name,
+            screenName = user?.screenName,
+            profileImageUrlHttps = user?.profileImageUrlHttps
+        )
+    }
+
+    suspend fun getUserTweets(userId: String): List<TweetResult> {
+        val variables = "{\"userId\":\"$userId\",\"count\":20,\"includePromotedContent\":false,\"withQuickPromoteEligibilityTweetFields\":true,\"withVoice\":true,\"withV2Timeline\":true}"
+        try {
+            val response = api.getUserTweets(variables, TIMELINE_FEATURES)
+            val tweets = mutableListOf<TweetResult>()
+            response.data?.user?.result?.timelineV2?.timeline?.instructions?.forEach { instruction ->
+                val entries = when (instruction.type) {
+                    "TimelineAddEntries" -> instruction.entries.orEmpty()
+                    "TimelinePinEntry" -> listOfNotNull(instruction.entry)
+                    else -> emptyList()
+                }
+                entries.forEach { entry ->
+                    if (entry.entryId.contains("promoted", ignoreCase = true)) return@forEach
+                    entry.content?.itemContent?.let { item ->
+                        if (item.promotedMetadata == null) {
+                            item.tweetResults?.result?.unwrapDisplayable()
+                                ?.let { tweets.add(it) }
+                        }
+                    }
+                    // profile-conversation modules (self-threads etc.)
+                    entry.content?.items?.forEach { moduleItem ->
+                        moduleItem.item?.itemContent?.let { item ->
+                            if (item.promotedMetadata == null) {
+                                item.tweetResults?.result?.unwrapDisplayable()
+                                    ?.let { tweets.add(it) }
+                            }
+                        }
+                    }
+                }
+            }
+            return tweets
+        } catch (e: retrofit2.HttpException) {
+            println("TimelineRepository: UserTweets ${e.code()}: ${e.errorSnippet()}")
+            throw e
+        }
+    }
+
+    private fun retrofit2.HttpException.errorSnippet(): String? =
+        response()?.errorBody()?.string()?.take(500)
 
     suspend fun getHomeTimeline(): List<TweetResult> {
         // Variables from QuaX client.dart (with userId="1" as seen in _for_you.dart)
         val variables = "{\"userId\":\"1\",\"count\":20,\"includePromotedContent\":false,\"withQuickPromoteEligibilityTweetFields\":true,\"withVoice\":true,\"withV2Timeline\":true}"
         
-        // Features from QuaX client.dart
-        val features = "{\"rweb_lists_timeline_redesign_enabled\":true,\"responsive_web_graphql_exclude_directive_enabled\":true,\"verified_phone_label_enabled\":true,\"creator_subscriptions_tweet_preview_api_enabled\":true,\"responsive_web_graphql_timeline_navigation_enabled\":true,\"responsive_web_graphql_skip_user_profile_image_extensions_enabled\":false,\"tweetypie_unmention_optimization_enabled\":true,\"responsive_web_edit_tweet_api_enabled\":true,\"graphql_is_translatable_rweb_tweet_is_translatable_enabled\":true,\"view_counts_everywhere_api_enabled\":true,\"longform_notetweets_consumption_enabled\":true,\"responsive_web_twitter_article_tweet_consumption_enabled\":false,\"tweet_awards_web_tipping_enabled\":false,\"freedom_of_speech_not_reach_fetch_enabled\":true,\"standardized_nudges_misinfo\":true,\"tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled\":true,\"longform_notetweets_rich_text_read_enabled\":true,\"longform_notetweets_inline_media_enabled\":true,\"responsive_web_media_download_video_enabled\":false,\"responsive_web_enhance_cards_enabled\":false}"
-        val fieldToggles = "{\"withAuxiliaryUserLabels\":false,\"withArticleRichContentState\":false}"
-
         try {
-            // Note: fieldToggles is not currently used in our API definition but QuaX sends it. 
-            // We might need to add it to HomeTimelineApi if this still fails.
-            val response = api.getHomeTimeline(variables, features)
+            val response = api.getHomeTimeline(variables, TIMELINE_FEATURES)
             
             val tweets = mutableListOf<TweetResult>()
 
@@ -90,10 +133,8 @@ class TimelineRepository(private val authRepository: AuthRepository) {
 
     suspend fun getTweetDetail(tweetId: String): TweetDetail {
         val variables = "{\"focalTweetId\":\"$tweetId\",\"referrer\":\"profile\",\"controller_data\":\"DAACDAABDAABCgABAAAAAAAAAAAKAAkNObspUxawBQAAAAA=\",\"with_rux_injections\":false,\"includePromotedContent\":false,\"withCommunity\":true,\"withQuickPromoteEligibilityTweetFields\":true,\"withBirdwatchNotes\":true,\"withVoice\":true,\"withV2Timeline\":true}"
-        val features = "{\"rweb_lists_timeline_redesign_enabled\":true,\"responsive_web_graphql_exclude_directive_enabled\":true,\"verified_phone_label_enabled\":true,\"creator_subscriptions_tweet_preview_api_enabled\":true,\"responsive_web_graphql_timeline_navigation_enabled\":true,\"responsive_web_graphql_skip_user_profile_image_extensions_enabled\":false,\"tweetypie_unmention_optimization_enabled\":true,\"responsive_web_edit_tweet_api_enabled\":true,\"graphql_is_translatable_rweb_tweet_is_translatable_enabled\":true,\"view_counts_everywhere_api_enabled\":true,\"longform_notetweets_consumption_enabled\":true,\"responsive_web_twitter_article_tweet_consumption_enabled\":false,\"tweet_awards_web_tipping_enabled\":false,\"freedom_of_speech_not_reach_fetch_enabled\":true,\"standardized_nudges_misinfo\":true,\"tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled\":true,\"longform_notetweets_rich_text_read_enabled\":true,\"longform_notetweets_inline_media_enabled\":true,\"responsive_web_media_download_video_enabled\":false,\"responsive_web_enhance_cards_enabled\":false}"
-
         try {
-            val response = api.getTweetDetail(variables, features)
+            val response = api.getTweetDetail(variables, TIMELINE_FEATURES)
             var mainTweet: TweetResult? = null
             val replies = mutableListOf<TweetResult>()
 

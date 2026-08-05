@@ -244,22 +244,22 @@ def scroll(direction: str = "down", amount: float = 0.6) -> str:
     to travel (0-1)."""
     size = _adb("shell", "wm", "size").rsplit(" ", 1)[-1]  # e.g. "1080x2404"
     w, h = (int(v) for v in size.split("x"))
-    amount = min(amount, 0.8)  # keep swipe endpoints away from screen-edge gestures
-    cx, cy = w // 2, h // 2
-    dx, dy = 0, 0
-    if direction == "down":
-        dy = -int(h * amount)
-    elif direction == "up":
-        dy = int(h * amount)
-    elif direction == "left":
-        dx = -int(w * amount)
-    elif direction == "right":
-        dx = int(w * amount)
+    # Gestures must stay inside a safe band: the bottom navigation bar and the
+    # system gesture edges swallow swipes that start on them.
+    x_lo, x_hi = int(w * 0.10), int(w * 0.90)
+    y_lo, y_hi = int(h * 0.15), int(h * 0.80)
+    cx = w // 2
+    cy = (y_lo + y_hi) // 2
+    if direction in ("down", "up"):
+        dist = min(int(h * amount), y_hi - y_lo)
+        y1, y2 = (y_lo + dist, y_lo) if direction == "down" else (y_hi - dist, y_hi)
+        _adb("shell", "input", "swipe", str(cx), str(y1), str(cx), str(y2), "300")
+    elif direction in ("left", "right"):
+        dist = min(int(w * amount), x_hi - x_lo)
+        x1, x2 = (x_lo + dist, x_lo) if direction == "left" else (x_hi - dist, x_hi)
+        _adb("shell", "input", "swipe", str(x1), str(cy), str(x2), str(cy), "300")
     else:
         raise ValueError(f"unknown direction {direction!r}; use up/down/left/right")
-    x1, y1 = cx - dx // 2, cy - dy // 2
-    x2, y2 = cx + dx // 2, cy + dy // 2
-    _adb("shell", "input", "swipe", str(x1), str(y1), str(x2), str(y2), "300")
     return f"scrolled {direction} by {amount} of screen"
 
 

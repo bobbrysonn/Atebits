@@ -36,7 +36,9 @@ data class Timeline(
 @Serializable
 data class TimelineInstruction(
     val type: String = "",
-    val entries: List<TimelineEntry>? = null
+    val entries: List<TimelineEntry>? = null,
+    // TimelinePinEntry carries a single entry (the pinned tweet)
+    val entry: TimelineEntry? = null
 )
 
 @Serializable
@@ -113,15 +115,33 @@ data class UserResults(
 @Serializable
 data class UserResult(
     val rest_id: String? = null,
-    val legacy: UserLegacy? = null
+    val legacy: UserLegacy? = null,
+    // Present on UserTweets responses
+    @SerialName("timeline_v2") val timelineV2: TimelineV2? = null
+)
+
+@Serializable
+data class TimelineV2(
+    val timeline: Timeline? = null
 )
 
 @Serializable
 data class UserLegacy(
     val name: String? = null,
     @SerialName("screen_name") val screenName: String? = null,
-    @SerialName("profile_image_url_https") val profileImageUrlHttps: String? = null
+    @SerialName("profile_image_url_https") val profileImageUrlHttps: String? = null,
+    val description: String? = null,
+    val location: String? = null,
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("followers_count") val followersCount: Int = 0,
+    @SerialName("friends_count") val friendsCount: Int = 0,
+    @SerialName("statuses_count") val statusesCount: Int = 0,
+    @SerialName("profile_banner_url") val profileBannerUrl: String? = null
 )
+
+// profile_image_url_https is the 48px "_normal" variant
+fun UserLegacy.bigAvatarUrl(): String? =
+    profileImageUrlHttps?.replace("_normal", "_400x400")
 
 @Serializable
 data class TweetLegacy(

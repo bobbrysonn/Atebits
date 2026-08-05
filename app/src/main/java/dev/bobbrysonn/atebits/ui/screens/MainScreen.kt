@@ -1,8 +1,10 @@
 package dev.bobbrysonn.atebits.ui.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -86,9 +88,10 @@ fun MainScreen() {
 
     // Fetch the signed-in user once per session for the avatar + drawer header
     val context = LocalContext.current
+    val authRepository = remember { AuthRepository(context) }
     LaunchedEffect(Unit) {
         if (CurrentUser.profile == null) {
-            val repository = TimelineRepository(AuthRepository(context))
+            val repository = TimelineRepository(authRepository)
             try {
                 CurrentUser.profile = repository.getCurrentUser()
             } catch (e: Exception) {
@@ -102,7 +105,14 @@ fun MainScreen() {
             drawerState = drawerState,
             drawerContent = {
                 ModalDrawerSheet {
-                    DrawerHeader()
+                    DrawerHeader(
+                        onClick = {
+                            authRepository.getUserId()?.let { userId ->
+                                drawerScope.launch { drawerState.close() }
+                                navController.navigate("profile/$userId")
+                            }
+                        }
+                    )
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                     NavigationDrawerItem(
                         label = { Text("Settings") },
@@ -140,9 +150,14 @@ fun MainScreen() {
 }
 
 @Composable
-private fun DrawerHeader() {
+private fun DrawerHeader(onClick: () -> Unit = {}) {
     val profile = CurrentUser.profile
-    Column(modifier = Modifier.padding(start = 16.dp, top = 24.dp, end = 16.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(start = 16.dp, top = 24.dp, end = 16.dp, bottom = 4.dp)
+    ) {
         val avatarUrl = profile?.avatarUrl()
         if (avatarUrl != null) {
             AsyncImage(
@@ -278,6 +293,36 @@ private fun MainScaffold(
                 LaunchedEffect(Unit) { onSelectItem(3) }
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("Coming Soon: Messages")
+                }
+            }
+            composable(
+                "profile/{userId}",
+                enterTransition = {
+                    slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(300))
+                },
+                exitTransition = {
+                    slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(300))
+                },
+                popEnterTransition = {
+                    slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(300))
+                },
+                popExitTransition = {
+                    slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(300))
+                }
+            ) { backStackEntry ->
+                val userId = backStackEntry.arguments?.getString("userId")
+                if (userId != null) {
+                    ProfileScreen(
+                        userId = userId,
+                        onBack = { navController.popBackStack() },
+                        onTweetClick = { tweet ->
+                            val id = tweet.rest_id ?: tweet.tweet?.rest_id
+                            if (id != null) {
+                                TweetCache.put(id, tweet)
+                                navController.navigate("tweet/$id")
+                            }
+                        }
+                    )
                 }
             }
             composable(

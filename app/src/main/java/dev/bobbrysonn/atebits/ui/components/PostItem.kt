@@ -50,7 +50,10 @@ import kotlin.math.max
 fun PostItem(
     tweet: TweetResult,
     onImageClick: (String) -> Unit = {},
-    onTweetClick: (TweetResult) -> Unit = {}
+    onTweetClick: (TweetResult) -> Unit = {},
+    // Flatter tone for cards that play a supporting role (e.g. replies under
+    // the focal tweet on the detail screen)
+    muted: Boolean = false
 ) {
     val user = tweet.core?.userResults?.result?.legacy
     val tweetContent = tweet.legacy
@@ -64,7 +67,11 @@ fun PostItem(
             .clickable { onTweetClick(tweet) },
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+            containerColor = if (muted) {
+                MaterialTheme.colorScheme.surfaceContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceContainerHigh
+            }
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {

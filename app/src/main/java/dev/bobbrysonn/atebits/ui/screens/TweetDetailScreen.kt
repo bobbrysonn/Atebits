@@ -56,7 +56,12 @@ fun TweetDetailScreen(
     val timelineRepository = remember { TimelineRepository(authRepository) }
     val coroutineScope = rememberCoroutineScope()
     var mainTweet by remember { mutableStateOf<TweetResult?>(initialTweet ?: TweetCache.get(tweetId)) }
-    var comments by remember { mutableStateOf<List<TweetResult>>(emptyList()) }
+    // Seed from cache synchronously: if comments only arrive after the first
+    // frame, the restored LazyColumn scroll position gets clamped to the top
+    // when navigating back from a sub-comment thread.
+    var comments by remember {
+        mutableStateOf(TweetDetailCache.get(tweetId)?.replies ?: emptyList())
+    }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var selectedImageUrl by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
@@ -150,6 +155,17 @@ fun TweetDetailScreen(
                             }
                         }
 
+                        if (comments.isNotEmpty()) {
+                            item {
+                                Text(
+                                    text = "Replies",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(start = 24.dp, top = 16.dp)
+                                )
+                            }
+                        }
+
                         if (isLoading && comments.isEmpty()) {
                             item {
                                 Box(
@@ -167,7 +183,8 @@ fun TweetDetailScreen(
                             PostItem(
                                 tweet = tweet,
                                 onImageClick = { url -> selectedImageUrl = url },
-                                onTweetClick = onCommentClick
+                                onTweetClick = onCommentClick,
+                                muted = true
                             )
                         }
                     }

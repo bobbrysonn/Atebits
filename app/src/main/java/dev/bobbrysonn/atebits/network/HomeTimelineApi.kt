@@ -12,6 +12,12 @@ interface HomeTimelineApi {
         @Query("features") features: String
     ): UserResponse
 
+    @GET("/i/api/graphql/XicnWRbyQ3WgVY__VataBQ/UserTweets")
+    suspend fun getUserTweets(
+        @Query("variables") variables: String,
+        @Query("features") features: String
+    ): UserResponse
+
     @GET("/i/api/graphql/W4Tpu1uueTGK53paUgxF0Q/HomeTimeline")
     suspend fun getHomeTimeline(
         @Query("variables") variables: String,
