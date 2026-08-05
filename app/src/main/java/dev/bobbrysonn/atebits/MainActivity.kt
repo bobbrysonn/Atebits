@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import dev.bobbrysonn.atebits.data.AppSettings
 import dev.bobbrysonn.atebits.data.AuthRepository
 import dev.bobbrysonn.atebits.data.SessionEvents
+import dev.bobbrysonn.atebits.network.TransactionIdGenerator
 import dev.bobbrysonn.atebits.ui.screens.LoginScreen
 import dev.bobbrysonn.atebits.ui.screens.MainScreen
 import dev.bobbrysonn.atebits.ui.theme.AtebitsTheme
@@ -29,6 +30,10 @@ class MainActivity : ComponentActivity() {
 
         AppSettings.init(this)
         val authRepository = AuthRepository(this)
+
+        // Warm the transaction-id bundle off the main thread so the first API
+        // call doesn't pay for its two bootstrap fetches.
+        Thread { TransactionIdGenerator.shared(authRepository).prewarm() }.start()
 
         setContent {
             AtebitsTheme {

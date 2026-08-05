@@ -6,6 +6,8 @@ import okhttp3.Interceptor
 import okhttp3.Response
 
 class AuthInterceptor(private val authRepository: AuthRepository) : Interceptor {
+    private val transactionIds = TransactionIdGenerator.shared(authRepository)
+
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
         val builder = originalRequest.newBuilder()
@@ -25,10 +27,10 @@ class AuthInterceptor(private val authRepository: AuthRepository) : Interceptor 
             builder.header("x-twitter-auth-type", "OAuth2Session")
             builder.header("x-twitter-client-language", "en")
             builder.header("priority", "u=1, i")
-            // No x-client-transaction-id: the third-party generator service
-            // this app relied on is dead (parked domain), so the header was
-            // never actually sent — and the blocking lookup added a wasted
-            // round-trip to every single API call.
+            // Newer GraphQL query ids 404 without this; generated locally
+            // (see TransactionIdGenerator) rather than via a remote service.
+            transactionIds.transactionId(originalRequest.method, originalRequest.url.encodedPath)
+                ?.let { builder.header("x-client-transaction-id", it) }
         }
 
         val response = chain.proceed(builder.build())

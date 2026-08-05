@@ -116,10 +116,60 @@ data class UserResults(
 data class UserResult(
     val rest_id: String? = null,
     val legacy: UserLegacy? = null,
+    // Newer query ids drop `legacy` and split the user across these objects
+    val core: UserCore? = null,
+    val avatar: UserAvatar? = null,
+    val banner: UserBanner? = null,
+    val location: UserLocation? = null,
+    @SerialName("profile_bio") val profileBio: UserProfileBio? = null,
+    @SerialName("relationship_counts") val relationshipCounts: RelationshipCounts? = null,
+    @SerialName("tweet_counts") val tweetCounts: TweetCounts? = null,
     // Present on profile timeline responses; the key varies by query
     // (UserTweets uses timeline_v2, Likes uses timeline)
     @SerialName("timeline_v2") val timelineV2: TimelineV2? = null,
     val timeline: TimelineV2? = null
+)
+
+@Serializable
+data class UserCore(
+    val name: String? = null,
+    @SerialName("screen_name") val screenName: String? = null,
+    @SerialName("created_at") val createdAt: String? = null
+)
+
+@Serializable
+data class UserAvatar(@SerialName("image_url") val imageUrl: String? = null)
+
+@Serializable
+data class UserBanner(@SerialName("image_url") val imageUrl: String? = null)
+
+@Serializable
+data class UserLocation(val location: String? = null)
+
+@Serializable
+data class UserProfileBio(val description: String? = null)
+
+@Serializable
+data class RelationshipCounts(val followers: Int = 0, val following: Int = 0)
+
+@Serializable
+data class TweetCounts(val tweets: Int = 0)
+
+/**
+ * Normalizes the two user shapes the API returns: older query ids nest
+ * everything under `legacy`, newer ones split it across `core`/`avatar`/etc.
+ */
+fun UserResult.toLegacy(): UserLegacy = legacy ?: UserLegacy(
+    name = core?.name,
+    screenName = core?.screenName,
+    profileImageUrlHttps = avatar?.imageUrl,
+    description = profileBio?.description,
+    location = location?.location,
+    createdAt = core?.createdAt,
+    followersCount = relationshipCounts?.followers ?: 0,
+    friendsCount = relationshipCounts?.following ?: 0,
+    statusesCount = tweetCounts?.tweets ?: 0,
+    profileBannerUrl = banner?.imageUrl
 )
 
 @Serializable

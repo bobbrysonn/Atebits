@@ -38,6 +38,7 @@ import dev.bobbrysonn.atebits.data.TweetResult
 import dev.bobbrysonn.atebits.data.displayAspectRatio
 import dev.bobbrysonn.atebits.data.displayText
 import dev.bobbrysonn.atebits.data.isVideo
+import dev.bobbrysonn.atebits.data.toLegacy
 import dev.bobbrysonn.atebits.data.unwrapDisplayable
 import java.time.Duration
 import java.time.Instant
@@ -55,7 +56,7 @@ fun PostItem(
     // the focal tweet on the detail screen)
     muted: Boolean = false
 ) {
-    val user = tweet.core?.userResults?.result?.legacy
+    val user = tweet.core?.userResults?.result?.toLegacy()
     val tweetContent = tweet.legacy
     val media = tweetContent?.extendedEntities?.media ?: tweetContent?.entities?.media
     val timeAgo = tweetContent?.createdAt?.let { formatTimeAgo(it) }
@@ -191,7 +192,7 @@ private fun QuotedTweet(
     onImageClick: (String) -> Unit,
     onClick: () -> Unit
 ) {
-    val user = tweet.core?.userResults?.result?.legacy
+    val user = tweet.core?.userResults?.result?.toLegacy()
     val tweetContent = tweet.legacy
     val media = tweetContent?.extendedEntities?.media ?: tweetContent?.entities?.media
     val timeAgo = tweetContent?.createdAt?.let { formatTimeAgo(it) }

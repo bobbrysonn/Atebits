@@ -18,10 +18,12 @@ interface HomeTimelineApi {
         @Query("features") features: String
     ): UserResponse
 
-    @GET("/i/api/graphql/CwLU7qTfeu0doqhSr6tW4A/UserTweetsAndReplies")
+    // Query id + params captured from the live web client (2026-08)
+    @GET("/i/api/graphql/wc5DRl4VaW5lSqJ8YbftZQ/UserTweetsAndReplies")
     suspend fun getUserTweetsAndReplies(
         @Query("variables") variables: String,
-        @Query("features") features: String
+        @Query("features") features: String,
+        @Query("fieldToggles") fieldToggles: String
     ): UserResponse
 
     @GET("/i/api/graphql/YqiE3JL1KNgf9nSljYdxaA/UserMedia")

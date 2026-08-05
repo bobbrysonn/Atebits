@@ -55,6 +55,7 @@ import dev.bobbrysonn.atebits.data.TimelineRepository
 import dev.bobbrysonn.atebits.data.TweetResult
 import dev.bobbrysonn.atebits.data.UserLegacy
 import dev.bobbrysonn.atebits.data.bigAvatarUrl
+import dev.bobbrysonn.atebits.data.toLegacy
 import dev.bobbrysonn.atebits.ui.components.ConversationPost
 import dev.bobbrysonn.atebits.ui.components.PostItem
 import dev.bobbrysonn.atebits.ui.components.formatCount
@@ -93,7 +94,7 @@ fun ProfileScreen(
     LaunchedEffect(userId) {
         if (!ProfileCache.isUserFresh(userId)) {
             try {
-                repository.getUserProfile(userId)?.legacy?.let { user = it }
+                repository.getUserProfile(userId)?.toLegacy()?.let { user = it }
             } catch (e: Exception) {
                 e.printStackTrace()
             }

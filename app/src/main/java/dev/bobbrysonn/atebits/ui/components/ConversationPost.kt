@@ -38,6 +38,7 @@ import dev.bobbrysonn.atebits.data.TweetResult
 import dev.bobbrysonn.atebits.data.displayAspectRatio
 import dev.bobbrysonn.atebits.data.displayText
 import dev.bobbrysonn.atebits.data.isVideo
+import dev.bobbrysonn.atebits.data.toLegacy
 
 /**
  * A conversation thread as one card: parent tweet(s) and the reply, joined by
@@ -80,7 +81,7 @@ private fun ThreadedTweet(
     onImageClick: (String) -> Unit,
     onTweetClick: (TweetResult) -> Unit
 ) {
-    val user = tweet.core?.userResults?.result?.legacy
+    val user = tweet.core?.userResults?.result?.toLegacy()
     val tweetContent = tweet.legacy
     val media = tweetContent?.extendedEntities?.media ?: tweetContent?.entities?.media
     val timeAgo = tweetContent?.createdAt?.let { formatTimeAgo(it) }
