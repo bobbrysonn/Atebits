@@ -25,6 +25,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,8 +40,10 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import dev.bobbrysonn.atebits.data.TweetResult
 import dev.bobbrysonn.atebits.data.displayAspectRatio
-import dev.bobbrysonn.atebits.data.displayText
+import dev.bobbrysonn.atebits.data.fullDisplayText
+import dev.bobbrysonn.atebits.data.hasMoreText
 import dev.bobbrysonn.atebits.data.isVideo
+import dev.bobbrysonn.atebits.data.previewText
 import dev.bobbrysonn.atebits.data.toLegacy
 import dev.bobbrysonn.atebits.data.unwrapDisplayable
 import java.time.Duration
@@ -54,7 +60,10 @@ fun PostItem(
     onTweetClick: (TweetResult) -> Unit = {},
     // Flatter tone for cards that play a supporting role (e.g. replies under
     // the focal tweet on the detail screen)
-    muted: Boolean = false
+    muted: Boolean = false,
+    // Detail surfaces render longform posts in full; timelines show the
+    // truncated preview with "Show more"
+    showFullText: Boolean = false
 ) {
     val user = tweet.core?.userResults?.result?.toLegacy()
     val tweetContent = tweet.legacy
@@ -120,11 +129,16 @@ fun PostItem(
 
             Spacer(modifier = Modifier.height(12.dp))
 
+            var expanded by rememberSaveable(tweet.rest_id) { mutableStateOf(false) }
+            val showFull = showFullText || expanded
             Text(
-                text = tweetContent?.displayText() ?: "",
+                text = if (showFull) tweet.fullDisplayText() else tweet.previewText(),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface
             )
+            if (!showFull && tweet.hasMoreText) {
+                ShowMoreLabel(style = MaterialTheme.typography.bodyLarge) { expanded = true }
+            }
 
             val firstMedia = media?.firstOrNull()
             if (firstMedia?.isVideo == true) {
@@ -159,6 +173,18 @@ fun PostItem(
             TweetActionRow(tweetContent)
         }
     }
+}
+
+// "Show more" under a truncated longform post: expands the full text in
+// place. Taps anywhere else on the tweet still open the detail view.
+@Composable
+fun ShowMoreLabel(style: androidx.compose.ui.text.TextStyle, onClick: () -> Unit) {
+    Text(
+        text = "Show more",
+        style = style,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.clickable(onClick = onClick)
+    )
 }
 
 /**
@@ -254,11 +280,15 @@ private fun QuotedTweet(
 
         Spacer(modifier = Modifier.height(8.dp))
 
+        var expanded by rememberSaveable(tweet.rest_id) { mutableStateOf(false) }
         Text(
-            text = tweetContent?.displayText() ?: "",
+            text = if (expanded) tweet.fullDisplayText() else tweet.previewText(),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface
         )
+        if (!expanded && tweet.hasMoreText) {
+            ShowMoreLabel(style = MaterialTheme.typography.bodyMedium) { expanded = true }
+        }
 
         val firstMedia = media?.firstOrNull()
         if (firstMedia?.isVideo == true) {

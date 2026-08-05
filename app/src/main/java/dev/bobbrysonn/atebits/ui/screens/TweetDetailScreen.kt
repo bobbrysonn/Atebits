@@ -145,6 +145,7 @@ fun TweetDetailScreen(
                             item {
                                 PostItem(
                                     tweet = tweet,
+                                    showFullText = true,
                                     onImageClick = { url -> selectedImageUrl = url },
                                     // Already on this tweet's detail; only navigate for a
                                     // different tweet (e.g. tapping its quoted tweet card).

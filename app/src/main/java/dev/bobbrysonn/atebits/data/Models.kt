@@ -91,8 +91,27 @@ data class TweetResult(
     val rest_id: String? = null,
     val core: TweetCore? = null,
     val legacy: TweetLegacy? = null,
+    @SerialName("note_tweet") val noteTweet: NoteTweet? = null,
     val tweet: TweetResult? = null, // For retweets or quoted tweets where result is a wrapper
     @SerialName("quoted_status_result") val quotedStatusResult: TweetResults? = null
+)
+
+// Longform (>280 char) posts: legacy.full_text holds only the truncated
+// preview; the complete text lives here. is_expandable marks that a "Show
+// more" affordance applies on timeline surfaces.
+@Serializable
+data class NoteTweet(
+    @SerialName("is_expandable") val isExpandable: Boolean = false,
+    @SerialName("note_tweet_results") val noteTweetResults: NoteTweetResults? = null
+)
+
+@Serializable
+data class NoteTweetResults(val result: NoteTweetResult? = null)
+
+@Serializable
+data class NoteTweetResult(
+    val text: String? = null,
+    @SerialName("entity_set") val entitySet: TweetEntities? = null
 )
 
 // Unwraps TweetWithVisibilityResults and drops entries that can't be rendered
@@ -315,6 +334,29 @@ fun TweetLegacy.displayText(): String {
     text = text.replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&")
     return text.trim()
 }
+
+// Complete text of a longform post. Unlike full_text, note text is not
+// HTML-escaped, has no display_text_range, and carries no media t.co links —
+// only linked URLs need swapping for their readable form.
+fun TweetResult.fullDisplayText(): String {
+    val note = noteTweet?.noteTweetResults?.result
+    var text = note?.text ?: return legacy?.displayText() ?: ""
+    note.entitySet?.urls?.forEach { entity ->
+        val tco = entity.url ?: return@forEach
+        text = text.replace(tco, entity.displayUrl ?: entity.expandedUrl ?: tco)
+    }
+    return text.trim()
+}
+
+// Timeline preview: the truncated legacy text when the post expands elsewhere,
+// otherwise the full note/legacy text.
+fun TweetResult.previewText(): String =
+    if (hasMoreText) legacy?.displayText() ?: "" else fullDisplayText()
+
+// True when a detail view would reveal text the preview cuts off
+val TweetResult.hasMoreText: Boolean
+    get() = noteTweet?.isExpandable == true &&
+        noteTweet.noteTweetResults?.result?.text != null
 
 private fun String.codePointsToOffset(codePoints: Int): Int =
     try {

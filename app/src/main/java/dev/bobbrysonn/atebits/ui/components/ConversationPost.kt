@@ -22,6 +22,10 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,8 +36,10 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import dev.bobbrysonn.atebits.data.TweetResult
 import dev.bobbrysonn.atebits.data.displayAspectRatio
-import dev.bobbrysonn.atebits.data.displayText
+import dev.bobbrysonn.atebits.data.fullDisplayText
+import dev.bobbrysonn.atebits.data.hasMoreText
 import dev.bobbrysonn.atebits.data.isVideo
+import dev.bobbrysonn.atebits.data.previewText
 import dev.bobbrysonn.atebits.data.toLegacy
 
 /**
@@ -147,7 +153,8 @@ private fun ThreadedTweet(
                 }
             }
 
-            val text = tweetContent?.displayText() ?: ""
+            var expanded by rememberSaveable(tweet.rest_id) { mutableStateOf(false) }
+            val text = if (expanded) tweet.fullDisplayText() else tweet.previewText()
             if (text.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
@@ -155,6 +162,9 @@ private fun ThreadedTweet(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
+                if (!expanded && tweet.hasMoreText) {
+                    ShowMoreLabel(style = MaterialTheme.typography.bodyMedium) { expanded = true }
+                }
             }
 
             val firstMedia = media?.firstOrNull()
