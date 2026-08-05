@@ -19,19 +19,24 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Place
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,10 +48,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import dev.bobbrysonn.atebits.data.AuthRepository
+import dev.bobbrysonn.atebits.data.ProfileCache
+import dev.bobbrysonn.atebits.data.ProfileTab
+import dev.bobbrysonn.atebits.data.ProfileTimelineItem
 import dev.bobbrysonn.atebits.data.TimelineRepository
 import dev.bobbrysonn.atebits.data.TweetResult
 import dev.bobbrysonn.atebits.data.UserLegacy
 import dev.bobbrysonn.atebits.data.bigAvatarUrl
+import dev.bobbrysonn.atebits.ui.components.ConversationPost
 import dev.bobbrysonn.atebits.ui.components.PostItem
 import dev.bobbrysonn.atebits.ui.components.formatCount
 import java.time.ZonedDateTime
@@ -56,7 +65,7 @@ import java.util.Locale
 private val BannerHeight = 140.dp
 private val AvatarSize = 84.dp
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
     userId: String,
@@ -66,25 +75,45 @@ fun ProfileScreen(
     val context = LocalContext.current
     val repository = remember { TimelineRepository(AuthRepository(context)) }
 
-    var user by remember { mutableStateOf<UserLegacy?>(null) }
-    var tweets by remember { mutableStateOf<List<TweetResult>>(emptyList()) }
-    var tweetsLoading by remember { mutableStateOf(true) }
-    var tweetsError by remember { mutableStateOf<String?>(null) }
+    // Cache-seeded so revisits render instantly; network refreshes when stale
+    var user by remember { mutableStateOf(ProfileCache.getUser(userId)) }
+    var tabIndex by rememberSaveable { mutableIntStateOf(0) }
+    val selectedTab = ProfileTab.entries[tabIndex]
+    val tabItems = remember {
+        mutableStateMapOf<ProfileTab, List<ProfileTimelineItem>>().apply {
+            ProfileTab.entries.forEach { tab ->
+                ProfileCache.getTimeline(userId, tab)?.let { put(tab, it) }
+            }
+        }
+    }
+    var tabLoading by remember { mutableStateOf(false) }
+    val tabErrors = remember { mutableStateMapOf<ProfileTab, String>() }
     var selectedImageUrl by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(userId) {
-        try {
-            user = repository.getUserProfile(userId)?.legacy
-        } catch (e: Exception) {
-            e.printStackTrace()
+        if (!ProfileCache.isUserFresh(userId)) {
+            try {
+                repository.getUserProfile(userId)?.legacy?.let { user = it }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
-        try {
-            tweets = repository.getUserTweets(userId)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            tweetsError = e.message ?: "Couldn't load posts"
-        } finally {
-            tweetsLoading = false
+    }
+
+    LaunchedEffect(selectedTab) {
+        tabErrors.remove(selectedTab)
+        if (!ProfileCache.isTimelineFresh(userId, selectedTab)) {
+            tabLoading = tabItems[selectedTab].isNullOrEmpty()
+            try {
+                tabItems[selectedTab] = repository.getUserTimeline(userId, selectedTab)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                if (tabItems[selectedTab].isNullOrEmpty()) {
+                    tabErrors[selectedTab] = e.message ?: "Couldn't load"
+                }
+            } finally {
+                tabLoading = false
+            }
         }
     }
 
@@ -93,18 +122,23 @@ fun ProfileScreen(
             item { ProfileHeader(user) }
             item { ProfileInfo(user) }
             item {
-                Column {
-                    Text(
-                        text = "Posts",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(start = 24.dp, top = 16.dp, bottom = 8.dp)
-                    )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                PrimaryTabRow(
+                    selectedTabIndex = tabIndex,
+                    containerColor = Color.Transparent,
+                    modifier = Modifier.padding(top = 8.dp)
+                ) {
+                    ProfileTab.entries.forEachIndexed { index, tab ->
+                        Tab(
+                            selected = tabIndex == index,
+                            onClick = { tabIndex = index },
+                            text = { Text(tab.label) }
+                        )
+                    }
                 }
             }
+            val items = tabItems[selectedTab].orEmpty()
             when {
-                tweetsLoading -> item {
+                tabLoading && items.isEmpty() -> item {
                     Box(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
                         contentAlignment = Alignment.Center
@@ -112,20 +146,30 @@ fun ProfileScreen(
                         LoadingIndicator()
                     }
                 }
-                tweetsError != null -> item {
+                tabErrors[selectedTab] != null -> item {
                     Text(
-                        text = "Couldn't load posts: $tweetsError",
+                        text = "Couldn't load ${selectedTab.label.lowercase()}: ${tabErrors[selectedTab]}",
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(16.dp)
                     )
                 }
-                else -> items(tweets) { tweet ->
-                    PostItem(
-                        tweet = tweet,
-                        onImageClick = { url -> selectedImageUrl = url },
-                        onTweetClick = onTweetClick
-                    )
+                else -> items(items) { item ->
+                    if (item.tweets.size > 1) {
+                        ConversationPost(
+                            tweets = item.tweets,
+                            onImageClick = { url -> selectedImageUrl = url },
+                            onTweetClick = onTweetClick
+                        )
+                    } else {
+                        item.tweets.firstOrNull()?.let { tweet ->
+                            PostItem(
+                                tweet = tweet,
+                                onImageClick = { url -> selectedImageUrl = url },
+                                onTweetClick = onTweetClick
+                            )
+                        }
+                    }
                 }
             }
         }

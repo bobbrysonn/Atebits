@@ -23,6 +23,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.rememberCoroutineScope
@@ -152,12 +153,15 @@ fun MainScreen() {
 @Composable
 private fun DrawerHeader(onClick: () -> Unit = {}) {
     val profile = CurrentUser.profile
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(start = 16.dp, top = 24.dp, end = 16.dp, bottom = 4.dp)
+    // Surface(onClick) makes the whole block one ripple-backed touch target
+    Surface(
+        onClick = onClick,
+        color = androidx.compose.ui.graphics.Color.Transparent,
+        modifier = Modifier.fillMaxWidth()
     ) {
+        Column(
+            modifier = Modifier.padding(start = 16.dp, top = 24.dp, end = 16.dp, bottom = 12.dp)
+        ) {
         val avatarUrl = profile?.avatarUrl()
         if (avatarUrl != null) {
             AsyncImage(
@@ -188,6 +192,7 @@ private fun DrawerHeader(onClick: () -> Unit = {}) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
         }
     }
 }

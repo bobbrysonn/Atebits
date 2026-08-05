@@ -14,6 +14,17 @@ data class TweetDetail(
     val replies: List<TweetResult>
 )
 
+enum class ProfileTab(val label: String) {
+    Posts("Posts"),
+    Replies("Replies"),
+    Media("Media"),
+    Likes("Likes")
+}
+
+// One profile timeline row: a single tweet, or a conversation thread
+// (parent tweet(s) + the user's reply) on the Replies tab.
+data class ProfileTimelineItem(val tweets: List<TweetResult>)
+
 class TimelineRepository(private val authRepository: AuthRepository) {
     private val json = Json {
         ignoreUnknownKeys = true
@@ -41,7 +52,9 @@ class TimelineRepository(private val authRepository: AuthRepository) {
         try {
             val variables = "{\"userId\":\"$userId\",\"withSafetyModeUserFields\":true}"
             val features = "{\"hidden_profile_likes_enabled\":false,\"responsive_web_graphql_exclude_directive_enabled\":true,\"verified_phone_label_enabled\":true,\"highlights_tweets_tab_ui_enabled\":true,\"creator_subscriptions_tweet_preview_api_enabled\":true,\"responsive_web_graphql_skip_user_profile_image_extensions_enabled\":false,\"responsive_web_graphql_timeline_navigation_enabled\":true}"
-            return api.getUserByRestId(variables, features).data?.user?.result
+            val result = api.getUserByRestId(variables, features).data?.user?.result
+            result?.legacy?.let { ProfileCache.putUser(userId, it) }
+            return result
         } catch (e: retrofit2.HttpException) {
             // Feature-set/query-id errors come back as 400s with a JSON body
             // naming the problem — surface it for logcat debugging.
@@ -61,12 +74,19 @@ class TimelineRepository(private val authRepository: AuthRepository) {
         )
     }
 
-    suspend fun getUserTweets(userId: String): List<TweetResult> {
+    suspend fun getUserTimeline(userId: String, tab: ProfileTab): List<ProfileTimelineItem> {
         val variables = "{\"userId\":\"$userId\",\"count\":20,\"includePromotedContent\":false,\"withQuickPromoteEligibilityTweetFields\":true,\"withVoice\":true,\"withV2Timeline\":true}"
         try {
-            val response = api.getUserTweets(variables, TIMELINE_FEATURES)
-            val tweets = mutableListOf<TweetResult>()
-            response.data?.user?.result?.timelineV2?.timeline?.instructions?.forEach { instruction ->
+            val response = when (tab) {
+                ProfileTab.Posts -> api.getUserTweets(variables, TIMELINE_FEATURES)
+                ProfileTab.Replies -> api.getUserTweetsAndReplies(variables, TIMELINE_FEATURES)
+                ProfileTab.Media -> api.getUserMedia(variables, TIMELINE_FEATURES)
+                ProfileTab.Likes -> api.getUserLikes(variables, TIMELINE_FEATURES)
+            }
+            val items = mutableListOf<ProfileTimelineItem>()
+            val result = response.data?.user?.result
+            val timeline = result?.timelineV2?.timeline ?: result?.timeline?.timeline
+            timeline?.instructions?.forEach { instruction ->
                 val entries = when (instruction.type) {
                     "TimelineAddEntries" -> instruction.entries.orEmpty()
                     "TimelinePinEntry" -> listOfNotNull(instruction.entry)
@@ -77,23 +97,30 @@ class TimelineRepository(private val authRepository: AuthRepository) {
                     entry.content?.itemContent?.let { item ->
                         if (item.promotedMetadata == null) {
                             item.tweetResults?.result?.unwrapDisplayable()
-                                ?.let { tweets.add(it) }
+                                ?.let { items.add(ProfileTimelineItem(listOf(it))) }
                         }
                     }
-                    // profile-conversation modules (self-threads etc.)
-                    entry.content?.items?.forEach { moduleItem ->
-                        moduleItem.item?.itemContent?.let { item ->
-                            if (item.promotedMetadata == null) {
-                                item.tweetResults?.result?.unwrapDisplayable()
-                                    ?.let { tweets.add(it) }
-                            }
+                    // Modules: profile-conversation threads stay grouped on the
+                    // Replies tab (parent + reply render as one connected unit);
+                    // everywhere else they flatten to standalone rows.
+                    val moduleTweets = entry.content?.items.orEmpty().mapNotNull { moduleItem ->
+                        moduleItem.item?.itemContent
+                            ?.takeIf { it.promotedMetadata == null }
+                            ?.tweetResults?.result?.unwrapDisplayable()
+                    }
+                    if (moduleTweets.isNotEmpty()) {
+                        if (tab == ProfileTab.Replies) {
+                            items.add(ProfileTimelineItem(moduleTweets))
+                        } else {
+                            moduleTweets.forEach { items.add(ProfileTimelineItem(listOf(it))) }
                         }
                     }
                 }
             }
-            return tweets
+            ProfileCache.putTimeline(userId, tab, items)
+            return items
         } catch (e: retrofit2.HttpException) {
-            println("TimelineRepository: UserTweets ${e.code()}: ${e.errorSnippet()}")
+            println("TimelineRepository: ${tab.name} timeline ${e.code()}: ${e.errorSnippet()}")
             throw e
         }
     }

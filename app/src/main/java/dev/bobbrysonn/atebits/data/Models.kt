@@ -116,8 +116,10 @@ data class UserResults(
 data class UserResult(
     val rest_id: String? = null,
     val legacy: UserLegacy? = null,
-    // Present on UserTweets responses
-    @SerialName("timeline_v2") val timelineV2: TimelineV2? = null
+    // Present on profile timeline responses; the key varies by query
+    // (UserTweets uses timeline_v2, Likes uses timeline)
+    @SerialName("timeline_v2") val timelineV2: TimelineV2? = null,
+    val timeline: TimelineV2? = null
 )
 
 @Serializable
