@@ -64,7 +64,7 @@ import dev.bobbrysonn.atebits.data.CurrentUser
 import dev.bobbrysonn.atebits.data.TimelineRepository
 import dev.bobbrysonn.atebits.data.TweetCache
 import dev.bobbrysonn.atebits.data.TweetResult
-import dev.bobbrysonn.atebits.data.avatarUrl
+import dev.bobbrysonn.atebits.data.smallAvatarUrl
 import dev.bobbrysonn.atebits.ui.components.LocalListScrollInProgress
 import dev.bobbrysonn.atebits.ui.components.PostItem
 import dev.bobbrysonn.atebits.ui.screens.ImageViewerScreen
@@ -234,7 +234,7 @@ private fun HomeHeader(
                     .align(Alignment.CenterStart)
                     .padding(start = 8.dp)
             ) {
-                val avatarUrl = CurrentUser.profile?.avatarUrl()
+                val avatarUrl = CurrentUser.profile?.smallAvatarUrl()
                 if (avatarUrl != null) {
                     AsyncImage(
                         model = avatarUrl,

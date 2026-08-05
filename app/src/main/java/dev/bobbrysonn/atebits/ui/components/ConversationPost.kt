@@ -37,9 +37,12 @@ import coil.compose.AsyncImage
 import dev.bobbrysonn.atebits.data.TweetResult
 import dev.bobbrysonn.atebits.data.displayAspectRatio
 import dev.bobbrysonn.atebits.data.fullDisplayText
+import dev.bobbrysonn.atebits.data.fullSizeUrl
 import dev.bobbrysonn.atebits.data.hasMoreText
 import dev.bobbrysonn.atebits.data.isVideo
 import dev.bobbrysonn.atebits.data.previewText
+import dev.bobbrysonn.atebits.data.previewUrl
+import dev.bobbrysonn.atebits.data.smallAvatarUrl
 import dev.bobbrysonn.atebits.data.toLegacy
 
 /**
@@ -100,7 +103,7 @@ private fun ThreadedTweet(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             AsyncImage(
-                model = user?.profileImageUrlHttps,
+                model = user?.smallAvatarUrl(),
                 contentDescription = "Profile Picture",
                 modifier = Modifier
                     .size(40.dp)
@@ -175,13 +178,13 @@ private fun ThreadedTweet(
                 val imageUrl = firstMedia.mediaUrlHttps
                 Spacer(modifier = Modifier.height(8.dp))
                 AsyncImage(
-                    model = imageUrl,
+                    model = firstMedia.previewUrl("small"),
                     contentDescription = "Tweet Image",
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(firstMedia.displayAspectRatio())
                         .clip(RoundedCornerShape(12.dp))
-                        .clickable { onImageClick(imageUrl) },
+                        .clickable { onImageClick(firstMedia.fullSizeUrl() ?: imageUrl) },
                     contentScale = ContentScale.Crop
                 )
             }

@@ -44,6 +44,7 @@ import coil.compose.AsyncImage
 import dev.bobbrysonn.atebits.data.AppSettings
 import dev.bobbrysonn.atebits.data.MediaEntity
 import dev.bobbrysonn.atebits.data.bestVideoUrl
+import dev.bobbrysonn.atebits.data.previewUrl
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 
@@ -213,7 +214,8 @@ fun TweetVideo(
 @Composable
 private fun Poster(media: MediaEntity) {
     AsyncImage(
-        model = media.mediaUrlHttps,
+        // Covered by video moments later; the small variant is plenty
+        model = media.previewUrl("small"),
         contentDescription = "Video thumbnail",
         modifier = Modifier.fillMaxSize(),
         contentScale = ContentScale.Crop

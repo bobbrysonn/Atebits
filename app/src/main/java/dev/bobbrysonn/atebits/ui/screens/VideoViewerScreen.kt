@@ -54,6 +54,7 @@ import androidx.media3.ui.compose.state.rememberPresentationState
 import coil.compose.AsyncImage
 import dev.bobbrysonn.atebits.data.MediaEntity
 import dev.bobbrysonn.atebits.data.bestVideoUrl
+import dev.bobbrysonn.atebits.data.previewUrl
 import dev.bobbrysonn.atebits.ui.components.VideoPlaybackState
 import dev.bobbrysonn.atebits.ui.components.VideoPlayerPool
 import kotlinx.coroutines.delay
@@ -192,7 +193,7 @@ fun VideoViewerScreen(
             )
             if (presentationState.coverSurface) {
                 AsyncImage(
-                    model = media.mediaUrlHttps,
+                    model = media.previewUrl("large"),
                     contentDescription = "Video thumbnail",
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Fit

@@ -214,6 +214,10 @@ data class UserLegacy(
 fun UserLegacy.bigAvatarUrl(): String? =
     profileImageUrlHttps?.replace("_normal", "_400x400")
 
+// The 73px "_bigger" variant — right-sized for the 24-48dp row avatars
+fun UserLegacy.smallAvatarUrl(): String? =
+    profileImageUrlHttps?.replace("_normal", "_bigger")
+
 @Serializable
 data class TweetLegacy(
     @SerialName("full_text") val fullText: String? = null,
@@ -267,6 +271,15 @@ data class VideoVariant(
 val MediaEntity.isVideo: Boolean
     get() = type == "video" || type == "animated_gif"
 
+// pbs.twimg.com serves resized variants via ?name=; appending the query to the
+// canonical .jpg/.png URL is accepted and preserves the declared format.
+// "small" is 680px, "medium" 1200px, "large" 2048px.
+fun MediaEntity.previewUrl(name: String): String? =
+    mediaUrlHttps?.let { "$it?name=$name" }
+
+// What the fullscreen viewer should load once a sized preview was shown
+fun MediaEntity.fullSizeUrl(): String? = previewUrl("large")
+
 // Natural width/height ratio for layout, floored at 9:16 so extremely tall
 // images get cropped instead of dominating the timeline.
 fun MediaEntity.displayAspectRatio(): Float =
@@ -310,6 +323,10 @@ data class UserResponseData(
 // verify_credentials returns the 48px "_normal" variant; swap in a larger one
 fun UserProfile.avatarUrl(): String? =
     profileImageUrlHttps?.replace("_normal", "_400x400")
+
+// The 73px "_bigger" variant for the 32-48dp header/menu avatars
+fun UserProfile.smallAvatarUrl(): String? =
+    profileImageUrlHttps?.replace("_normal", "_bigger")
 
 // full_text contains raw t.co links and, on replies, leading @mentions.
 // display_text_range marks the visible slice (drops both); then replace linked

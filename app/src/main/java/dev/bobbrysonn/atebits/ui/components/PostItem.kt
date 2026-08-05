@@ -41,9 +41,12 @@ import coil.compose.AsyncImage
 import dev.bobbrysonn.atebits.data.TweetResult
 import dev.bobbrysonn.atebits.data.displayAspectRatio
 import dev.bobbrysonn.atebits.data.fullDisplayText
+import dev.bobbrysonn.atebits.data.fullSizeUrl
 import dev.bobbrysonn.atebits.data.hasMoreText
 import dev.bobbrysonn.atebits.data.isVideo
 import dev.bobbrysonn.atebits.data.previewText
+import dev.bobbrysonn.atebits.data.previewUrl
+import dev.bobbrysonn.atebits.data.smallAvatarUrl
 import dev.bobbrysonn.atebits.data.toLegacy
 import dev.bobbrysonn.atebits.data.unwrapDisplayable
 import java.time.Duration
@@ -89,7 +92,7 @@ fun PostItem(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // Profile picture
                 AsyncImage(
-                    model = user?.profileImageUrlHttps,
+                    model = user?.smallAvatarUrl(),
                     contentDescription = "Profile Picture",
                     modifier = Modifier
                         .size(48.dp)
@@ -148,13 +151,15 @@ fun PostItem(
                 val imageUrl = firstMedia.mediaUrlHttps
                 Spacer(modifier = Modifier.height(12.dp))
                 AsyncImage(
-                    model = imageUrl,
+                    // Card shows the 1200px variant; the tap hands the viewer
+                    // the full-size URL so only it pays for the big decode
+                    model = firstMedia.previewUrl("medium"),
                     contentDescription = "Tweet Image",
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(firstMedia.displayAspectRatio())
                         .clip(RoundedCornerShape(16.dp))
-                        .clickable { onImageClick(imageUrl) },
+                        .clickable { onImageClick(firstMedia.fullSizeUrl() ?: imageUrl) },
                     contentScale = ContentScale.Crop
                 )
             }
@@ -248,7 +253,7 @@ private fun QuotedTweet(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             AsyncImage(
-                model = user?.profileImageUrlHttps,
+                model = user?.smallAvatarUrl(),
                 contentDescription = "Profile Picture",
                 modifier = Modifier
                     .size(24.dp)
@@ -298,13 +303,13 @@ private fun QuotedTweet(
             val imageUrl = firstMedia.mediaUrlHttps
             Spacer(modifier = Modifier.height(8.dp))
             AsyncImage(
-                model = imageUrl,
+                model = firstMedia.previewUrl("small"),
                 contentDescription = "Quoted Tweet Image",
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(firstMedia.displayAspectRatio())
                     .clip(RoundedCornerShape(12.dp))
-                    .clickable { onImageClick(imageUrl) },
+                    .clickable { onImageClick(firstMedia.fullSizeUrl() ?: imageUrl) },
                 contentScale = ContentScale.Crop
             )
         }

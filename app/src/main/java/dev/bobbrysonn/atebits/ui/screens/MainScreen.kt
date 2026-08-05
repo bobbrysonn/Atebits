@@ -36,7 +36,7 @@ import coil.compose.AsyncImage
 import dev.bobbrysonn.atebits.data.AuthRepository
 import dev.bobbrysonn.atebits.data.CurrentUser
 import dev.bobbrysonn.atebits.data.TimelineRepository
-import dev.bobbrysonn.atebits.data.avatarUrl
+import dev.bobbrysonn.atebits.data.smallAvatarUrl
 import dev.bobbrysonn.atebits.ui.components.VideoPlaybackState
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.Composable
@@ -162,7 +162,7 @@ private fun DrawerHeader(onClick: () -> Unit = {}) {
         Column(
             modifier = Modifier.padding(start = 16.dp, top = 24.dp, end = 16.dp, bottom = 12.dp)
         ) {
-        val avatarUrl = profile?.avatarUrl()
+        val avatarUrl = profile?.smallAvatarUrl()
         if (avatarUrl != null) {
             AsyncImage(
                 model = avatarUrl,

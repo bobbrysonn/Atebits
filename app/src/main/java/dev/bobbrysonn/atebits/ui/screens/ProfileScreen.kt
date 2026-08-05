@@ -232,7 +232,9 @@ private fun ProfileHeader(user: UserLegacy?) {
         ) {
             if (user?.profileBannerUrl != null) {
                 AsyncImage(
-                    model = user.profileBannerUrl,
+                    // Banner URLs are extensionless and take a size path-suffix;
+                    // 1500x500 matches the full-width render
+                    model = user.profileBannerUrl + "/1500x500",
                     contentDescription = "Profile banner",
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
