@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -118,11 +119,15 @@ fun ProfileScreen(
         }
     }
 
+    val listState = rememberLazyListState()
+
     Box(modifier = Modifier.fillMaxSize()) {
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
-            item { ProfileHeader(user) }
-            item { ProfileInfo(user) }
-            item {
+        LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+            // Keys must be unique across the whole list; the fixed slots use
+            // non-numeric strings so they can't collide with tweet ids.
+            item(key = "header", contentType = "header") { ProfileHeader(user) }
+            item(key = "info", contentType = "info") { ProfileInfo(user) }
+            item(key = "tabs", contentType = "tabs") {
                 PrimaryTabRow(
                     selectedTabIndex = tabIndex,
                     containerColor = Color.Transparent,
@@ -137,9 +142,9 @@ fun ProfileScreen(
                     }
                 }
             }
-            val items = tabItems[selectedTab].orEmpty()
+            val rows = tabItems[selectedTab].orEmpty()
             when {
-                tabLoading && items.isEmpty() -> item {
+                tabLoading && rows.isEmpty() -> item(key = "tab-loading", contentType = "tab-loading") {
                     Box(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
                         contentAlignment = Alignment.Center
@@ -147,7 +152,7 @@ fun ProfileScreen(
                         LoadingIndicator()
                     }
                 }
-                tabErrors[selectedTab] != null -> item {
+                tabErrors[selectedTab] != null -> item(key = "tab-error", contentType = "tab-error") {
                     Text(
                         text = "Couldn't load ${selectedTab.label.lowercase()}: ${tabErrors[selectedTab]}",
                         color = MaterialTheme.colorScheme.error,
@@ -155,7 +160,11 @@ fun ProfileScreen(
                         modifier = Modifier.padding(16.dp)
                     )
                 }
-                else -> items(items) { item ->
+                else -> items(
+                    rows,
+                    key = { it.tweets.firstOrNull()?.rest_id ?: it.hashCode() },
+                    contentType = { if (it.tweets.size > 1) "conversation" else "tweet" }
+                ) { item ->
                     if (item.tweets.size > 1) {
                         ConversationPost(
                             tweets = item.tweets,

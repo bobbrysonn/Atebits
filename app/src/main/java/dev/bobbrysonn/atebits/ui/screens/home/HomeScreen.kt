@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
@@ -98,6 +99,7 @@ fun HomeScreen(
 
     var selectedImageUrl by remember { mutableStateOf<String?>(null) }
     val pullRefreshState = rememberPullToRefreshState()
+    val listState = rememberLazyListState()
 
     // Collapse-on-scroll: the header rides list scrolls (down hides, up
     // reveals) and settles fully shown or fully hidden after a fling.
@@ -158,10 +160,18 @@ fun HomeScreen(
                 }
             ) {
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(top = HeaderHeight)
                 ) {
-                    items(viewModel.tweets) { tweet ->
+                    // Stable keys keep item state (expansion, video) with its tweet
+                    // across refresh prepends, and anchor the viewport instead of
+                    // jumping; contentType lets the list reuse tweet slots.
+                    items(
+                        viewModel.tweets,
+                        key = { it.rest_id ?: it.tweet?.rest_id ?: it.hashCode() },
+                        contentType = { "tweet" }
+                    ) { tweet ->
                         PostItem(
                             tweet = tweet,
                             onImageClick = { url -> selectedImageUrl = url },

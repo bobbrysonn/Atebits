@@ -142,7 +142,7 @@ fun TweetDetailScreen(
                         contentPadding = PaddingValues(vertical = 8.dp)
                     ) {
                         mainTweet?.let { tweet ->
-                            item {
+                            item(key = "focal", contentType = "focal") {
                                 PostItem(
                                     tweet = tweet,
                                     showFullText = true,
@@ -157,7 +157,7 @@ fun TweetDetailScreen(
                         }
 
                         if (comments.isNotEmpty()) {
-                            item {
+                            item(key = "replies-label", contentType = "label") {
                                 Text(
                                     text = "Replies",
                                     style = MaterialTheme.typography.labelLarge,
@@ -168,7 +168,7 @@ fun TweetDetailScreen(
                         }
 
                         if (isLoading && comments.isEmpty()) {
-                            item {
+                            item(key = "loading", contentType = "loading") {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -180,7 +180,11 @@ fun TweetDetailScreen(
                             }
                         }
 
-                        items(comments) { tweet ->
+                        items(
+                            comments,
+                            key = { it.rest_id ?: it.hashCode() },
+                            contentType = { "reply" }
+                        ) { tweet ->
                             PostItem(
                                 tweet = tweet,
                                 onImageClick = { url -> selectedImageUrl = url },
