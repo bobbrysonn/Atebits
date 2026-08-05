@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.media3.exoplayer.ExoPlayer
+import dev.bobbrysonn.atebits.data.MediaEntity
 
 /** Session-wide video playback UI state. */
 object VideoPlaybackState {
@@ -13,6 +14,11 @@ object VideoPlaybackState {
 
     // While the fullscreen viewer is open, inline timeline players hold off.
     var viewerOpen by mutableStateOf(false)
+
+    // A tap on an inline video requests the fullscreen viewer (media + start
+    // position). MainScreen renders it above the whole scaffold so it covers
+    // the tab and navigation bars.
+    var fullscreenVideo by mutableStateOf<Pair<MediaEntity, Long>?>(null)
 
     private class Handoff(val mediaId: String?, val player: ExoPlayer)
 

@@ -198,6 +198,28 @@ data class MediaOriginalInfo(
     val height: Int = 0
 )
 
+// The signed-in user: id parsed from the twid cookie, rest via UserByRestId
+@Serializable
+data class UserProfile(
+    val name: String? = null,
+    @SerialName("screen_name") val screenName: String? = null,
+    @SerialName("profile_image_url_https") val profileImageUrlHttps: String? = null
+)
+
+@Serializable
+data class UserResponse(
+    val data: UserResponseData? = null
+)
+
+@Serializable
+data class UserResponseData(
+    val user: UserResults? = null
+)
+
+// verify_credentials returns the 48px "_normal" variant; swap in a larger one
+fun UserProfile.avatarUrl(): String? =
+    profileImageUrlHttps?.replace("_normal", "_400x400")
+
 // full_text contains raw t.co links and, on replies, leading @mentions.
 // display_text_range marks the visible slice (drops both); then replace linked
 // URLs with their readable display form and strip media links entirely

@@ -36,7 +36,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import dev.bobbrysonn.atebits.data.AuthRepository
-import dev.bobbrysonn.atebits.data.MediaEntity
 import dev.bobbrysonn.atebits.data.TimelineRepository
 import dev.bobbrysonn.atebits.data.TweetResult
 import dev.bobbrysonn.atebits.data.TweetCache
@@ -60,7 +59,6 @@ fun TweetDetailScreen(
     var comments by remember { mutableStateOf<List<TweetResult>>(emptyList()) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var selectedImageUrl by remember { mutableStateOf<String?>(null) }
-    var selectedVideo by remember { mutableStateOf<Pair<MediaEntity, Long>?>(null) }
     var isLoading by remember { mutableStateOf(false) }
 
     val loadDetail: suspend () -> Unit = {
@@ -147,9 +145,6 @@ fun TweetDetailScreen(
                                     // different tweet (e.g. tapping its quoted tweet card).
                                     onTweetClick = { clicked ->
                                         if (clicked.rest_id != tweetId) onCommentClick(clicked)
-                                    },
-                                    onVideoClick = { media, positionMs ->
-                                        selectedVideo = media to positionMs
                                     }
                                 )
                             }
@@ -172,10 +167,7 @@ fun TweetDetailScreen(
                             PostItem(
                                 tweet = tweet,
                                 onImageClick = { url -> selectedImageUrl = url },
-                                onTweetClick = onCommentClick,
-                                onVideoClick = { media, positionMs ->
-                                    selectedVideo = media to positionMs
-                                }
+                                onTweetClick = onCommentClick
                             )
                         }
                     }
@@ -186,14 +178,6 @@ fun TweetDetailScreen(
                 ImageViewerScreen(
                     imageUrl = selectedImageUrl!!,
                     onDismiss = { selectedImageUrl = null }
-                )
-            }
-
-            selectedVideo?.let { (media, positionMs) ->
-                VideoViewerScreen(
-                    media = media,
-                    startPositionMs = positionMs,
-                    onDismiss = { selectedVideo = null }
                 )
             }
         }

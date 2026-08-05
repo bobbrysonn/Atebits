@@ -59,6 +59,17 @@ class AuthRepository(private val context: Context) {
         }
     }
 
+    // The signed-in user's id, parsed from the twid cookie ("u%3D<id>") —
+    // no network call needed.
+    fun getUserId(): String? {
+        val session = getSession() ?: return null
+        val twid = parseCookies(session.cookieString)["twid"] ?: return null
+        return twid.removeSurrounding("\"")
+            .replace("u%3D", "")
+            .replace("u=", "")
+            .takeIf { it.isNotEmpty() && it.all(Char::isDigit) }
+    }
+
     // Wipes the stored session and the WebView cookies, so the login screen
     // shows a fresh login form instead of re-extracting the stale cookies.
     fun clearSession() {

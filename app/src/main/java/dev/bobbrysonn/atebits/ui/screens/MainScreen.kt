@@ -1,9 +1,14 @@
 package dev.bobbrysonn.atebits.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.DrawerValue
@@ -19,7 +24,17 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import dev.bobbrysonn.atebits.data.AuthRepository
+import dev.bobbrysonn.atebits.data.CurrentUser
+import dev.bobbrysonn.atebits.data.TimelineRepository
+import dev.bobbrysonn.atebits.data.avatarUrl
+import dev.bobbrysonn.atebits.ui.components.VideoPlaybackState
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -63,41 +78,102 @@ fun MainScreen() {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val drawerScope = rememberCoroutineScope()
 
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            ModalDrawerSheet {
-                // Placeholder until we fetch the signed-in user's profile
-                Icon(
-                    imageVector = Icons.Filled.AccountCircle,
-                    contentDescription = "Your account",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .padding(start = 16.dp, top = 24.dp, bottom = 8.dp)
-                        .size(48.dp)
-                )
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                NavigationDrawerItem(
-                    label = { Text("Settings") },
-                    icon = { Icon(Icons.Outlined.Settings, contentDescription = null) },
-                    selected = false,
-                    onClick = {
-                        drawerScope.launch { drawerState.close() }
-                        navController.navigate("settings")
-                    },
-                    modifier = Modifier.padding(horizontal = 12.dp)
-                )
+    // M3's drawer doesn't intercept back on its own; without this, back with
+    // the drawer open exits the app.
+    BackHandler(enabled = drawerState.isOpen) {
+        drawerScope.launch { drawerState.close() }
+    }
+
+    // Fetch the signed-in user once per session for the avatar + drawer header
+    val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        if (CurrentUser.profile == null) {
+            val repository = TimelineRepository(AuthRepository(context))
+            try {
+                CurrentUser.profile = repository.getCurrentUser()
+            } catch (e: Exception) {
+                e.printStackTrace() // Non-fatal: UI falls back to a placeholder icon
             }
         }
-    ) {
-        MainScaffold(
-            navController = navController,
-            selectedItem = selectedItem,
-            onSelectItem = { selectedItem = it },
-            items = items,
-            icons = icons,
-            onOpenDrawer = { drawerScope.launch { drawerState.open() } }
-        )
+    }
+
+    Box {
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            drawerContent = {
+                ModalDrawerSheet {
+                    DrawerHeader()
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    NavigationDrawerItem(
+                        label = { Text("Settings") },
+                        icon = { Icon(Icons.Outlined.Settings, contentDescription = null) },
+                        selected = false,
+                        onClick = {
+                            drawerScope.launch { drawerState.close() }
+                            navController.navigate("settings")
+                        },
+                        modifier = Modifier.padding(horizontal = 12.dp)
+                    )
+                }
+            }
+        ) {
+            MainScaffold(
+                navController = navController,
+                selectedItem = selectedItem,
+                onSelectItem = { selectedItem = it },
+                items = items,
+                icons = icons,
+                onOpenDrawer = { drawerScope.launch { drawerState.open() } }
+            )
+        }
+
+        // Fullscreen video lives above the drawer and scaffold so it covers
+        // the tab row and bottom navigation bar, like the official client.
+        VideoPlaybackState.fullscreenVideo?.let { (media, positionMs) ->
+            VideoViewerScreen(
+                media = media,
+                startPositionMs = positionMs,
+                onDismiss = { VideoPlaybackState.fullscreenVideo = null }
+            )
+        }
+    }
+}
+
+@Composable
+private fun DrawerHeader() {
+    val profile = CurrentUser.profile
+    Column(modifier = Modifier.padding(start = 16.dp, top = 24.dp, end = 16.dp)) {
+        val avatarUrl = profile?.avatarUrl()
+        if (avatarUrl != null) {
+            AsyncImage(
+                model = avatarUrl,
+                contentDescription = "Your account",
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape),
+                contentScale = ContentScale.Crop
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Filled.AccountCircle,
+                contentDescription = "Your account",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(48.dp)
+            )
+        }
+        if (profile != null) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = profile.name ?: "",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "@${profile.screenName ?: ""}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 

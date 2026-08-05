@@ -31,6 +31,27 @@ class TimelineRepository(private val authRepository: AuthRepository) {
 
     private val api = retrofit.create(HomeTimelineApi::class.java)
 
+    suspend fun getCurrentUser(): UserProfile {
+        val userId = authRepository.getUserId()
+            ?: throw IllegalStateException("no twid cookie in session")
+        try {
+            val variables = "{\"userId\":\"$userId\",\"withSafetyModeUserFields\":true}"
+            val features = "{\"hidden_profile_likes_enabled\":false,\"responsive_web_graphql_exclude_directive_enabled\":true,\"verified_phone_label_enabled\":true,\"highlights_tweets_tab_ui_enabled\":true,\"creator_subscriptions_tweet_preview_api_enabled\":true,\"responsive_web_graphql_skip_user_profile_image_extensions_enabled\":false,\"responsive_web_graphql_timeline_navigation_enabled\":true}"
+            val user = api.getUserByRestId(variables, features).data?.user?.result?.legacy
+            return UserProfile(
+                name = user?.name,
+                screenName = user?.screenName,
+                profileImageUrlHttps = user?.profileImageUrlHttps
+            )
+        } catch (e: retrofit2.HttpException) {
+            // Feature-set/query-id errors come back as 400s with a JSON body
+            // naming the problem — surface it for logcat debugging.
+            val body = e.response()?.errorBody()?.string()?.take(500)
+            println("TimelineRepository: UserByRestId ${e.code()}: $body")
+            throw e
+        }
+    }
+
     suspend fun getHomeTimeline(): List<TweetResult> {
         // Variables from QuaX client.dart (with userId="1" as seen in _for_you.dart)
         val variables = "{\"userId\":\"1\",\"count\":20,\"includePromotedContent\":false,\"withQuickPromoteEligibilityTweetFields\":true,\"withVoice\":true,\"withV2Timeline\":true}"

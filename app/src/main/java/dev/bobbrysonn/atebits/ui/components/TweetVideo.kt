@@ -55,14 +55,14 @@ import kotlinx.coroutines.isActive
  * once at least half of it scrolls into view and stops when it leaves; the
  * player is created lazily so off-screen list items cost nothing. With
  * autoplay off it stays a poster frame. Tapping either opens the fullscreen
- * viewer via [onVideoClick], carrying the current position along.
+ * viewer (via [VideoPlaybackState.fullscreenVideo]), handing the live player
+ * and position along.
  */
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
 fun TweetVideo(
     media: MediaEntity,
-    modifier: Modifier = Modifier,
-    onVideoClick: (MediaEntity, Long) -> Unit = { _, _ -> }
+    modifier: Modifier = Modifier
 ) {
     val videoUrl = media.bestVideoUrl() ?: return
     val isGif = media.type == "animated_gif"
@@ -143,7 +143,7 @@ fun TweetVideo(
                     VideoPlaybackState.stash(media.id_str, current)
                     player = null
                 }
-                onVideoClick(media, positionMs)
+                VideoPlaybackState.fullscreenVideo = media to positionMs
             }
     ) {
         val activePlayer = player

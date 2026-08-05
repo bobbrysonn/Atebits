@@ -21,9 +21,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
@@ -31,13 +35,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import dev.bobbrysonn.atebits.data.AuthRepository
-import dev.bobbrysonn.atebits.data.MediaEntity
+import dev.bobbrysonn.atebits.data.CurrentUser
 import dev.bobbrysonn.atebits.data.TimelineRepository
 import dev.bobbrysonn.atebits.data.TweetResult
 import dev.bobbrysonn.atebits.data.TweetCache
+import dev.bobbrysonn.atebits.data.avatarUrl
 import dev.bobbrysonn.atebits.ui.components.PostItem
 import dev.bobbrysonn.atebits.ui.screens.ImageViewerScreen
-import dev.bobbrysonn.atebits.ui.screens.VideoViewerScreen
 import kotlinx.coroutines.launch
 
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -75,20 +79,30 @@ fun HomeScreen(
     )
 
     var selectedImageUrl by remember { mutableStateOf<String?>(null) }
-    var selectedVideo by remember { mutableStateOf<Pair<MediaEntity, Long>?>(null) }
     val pullRefreshState = rememberPullToRefreshState()
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // Placeholder account icon until we fetch the signed-in user's profile
                 IconButton(onClick = onAvatarClick) {
-                    Icon(
-                        imageVector = Icons.Filled.AccountCircle,
-                        contentDescription = "Open menu",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(32.dp)
-                    )
+                    val avatarUrl = CurrentUser.profile?.avatarUrl()
+                    if (avatarUrl != null) {
+                        AsyncImage(
+                            model = avatarUrl,
+                            contentDescription = "Open menu",
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Filled.AccountCircle,
+                            contentDescription = "Open menu",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
                 }
                 PrimaryTabRow(selectedTabIndex = state, modifier = Modifier.weight(1f)) {
                     titles.forEachIndexed { index, title ->
@@ -127,10 +141,7 @@ fun HomeScreen(
                             PostItem(
                                 tweet = tweet,
                                 onImageClick = { url -> selectedImageUrl = url },
-                                onTweetClick = onTweetClick,
-                                onVideoClick = { media, positionMs ->
-                                    selectedVideo = media to positionMs
-                                }
+                                onTweetClick = onTweetClick
                             )
                         }
                     }
@@ -142,14 +153,6 @@ fun HomeScreen(
             ImageViewerScreen(
                 imageUrl = selectedImageUrl!!,
                 onDismiss = { selectedImageUrl = null }
-            )
-        }
-
-        selectedVideo?.let { (media, positionMs) ->
-            VideoViewerScreen(
-                media = media,
-                startPositionMs = positionMs,
-                onDismiss = { selectedVideo = null }
             )
         }
     }

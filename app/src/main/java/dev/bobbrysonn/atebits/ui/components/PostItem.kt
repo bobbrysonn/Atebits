@@ -34,7 +34,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import dev.bobbrysonn.atebits.data.MediaEntity
 import dev.bobbrysonn.atebits.data.TweetResult
 import dev.bobbrysonn.atebits.data.displayAspectRatio
 import dev.bobbrysonn.atebits.data.displayText
@@ -51,8 +50,7 @@ import kotlin.math.max
 fun PostItem(
     tweet: TweetResult,
     onImageClick: (String) -> Unit = {},
-    onTweetClick: (TweetResult) -> Unit = {},
-    onVideoClick: (MediaEntity, Long) -> Unit = { _, _ -> }
+    onTweetClick: (TweetResult) -> Unit = {}
 ) {
     val user = tweet.core?.userResults?.result?.legacy
     val tweetContent = tweet.legacy
@@ -123,7 +121,7 @@ fun PostItem(
             val firstMedia = media?.firstOrNull()
             if (firstMedia?.isVideo == true) {
                 Spacer(modifier = Modifier.height(12.dp))
-                TweetVideo(media = firstMedia, onVideoClick = onVideoClick)
+                TweetVideo(media = firstMedia)
             } else if (firstMedia?.mediaUrlHttps != null) {
                 val imageUrl = firstMedia.mediaUrlHttps
                 Spacer(modifier = Modifier.height(12.dp))
@@ -144,7 +142,6 @@ fun PostItem(
                 QuotedTweet(
                     tweet = quoted,
                     onImageClick = onImageClick,
-                    onVideoClick = onVideoClick,
                     onClick = { onTweetClick(quoted) }
                 )
             }
@@ -185,7 +182,6 @@ fun PostItem(
 private fun QuotedTweet(
     tweet: TweetResult,
     onImageClick: (String) -> Unit,
-    onVideoClick: (MediaEntity, Long) -> Unit,
     onClick: () -> Unit
 ) {
     val user = tweet.core?.userResults?.result?.legacy
@@ -247,7 +243,7 @@ private fun QuotedTweet(
         val firstMedia = media?.firstOrNull()
         if (firstMedia?.isVideo == true) {
             Spacer(modifier = Modifier.height(8.dp))
-            TweetVideo(media = firstMedia, onVideoClick = onVideoClick)
+            TweetVideo(media = firstMedia)
         } else if (firstMedia?.mediaUrlHttps != null) {
             val imageUrl = firstMedia.mediaUrlHttps
             Spacer(modifier = Modifier.height(8.dp))
