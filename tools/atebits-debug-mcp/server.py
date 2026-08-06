@@ -176,6 +176,25 @@ def logcat_clear() -> str:
 
 
 @mcp.tool()
+def gfxinfo(reset: bool = False) -> str:
+    """Frame-rendering stats for the app from dumpsys gfxinfo: janky frame %,
+    frame-time percentiles, missed vsyncs. Call with reset=True to zero the
+    counters, exercise the UI (e.g. fling the timeline), then call again to
+    read stats covering just that window."""
+    if reset:
+        _adb("shell", "dumpsys", "gfxinfo", PACKAGE, "reset")
+        return "gfxinfo counters reset"
+    out = _adb("shell", "dumpsys", "gfxinfo", PACKAGE)
+    keep = (
+        "Total frames", "Janky frames", "50th", "90th", "95th", "99th",
+        "Number Missed Vsync", "Number Slow UI thread",
+        "Number Slow bitmap uploads", "Number Frame deadline missed",
+    )
+    rows = [s for line in out.splitlines() if (s := line.strip()).startswith(keep)]
+    return "\n".join(rows) or out[:2000]
+
+
+@mcp.tool()
 def webview_pages() -> str:
     """List the app's WebView DevTools targets (page URL + title). Requires a debug
     build with WebView.setWebContentsDebuggingEnabled(true)."""
