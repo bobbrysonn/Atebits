@@ -38,29 +38,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import dev.bobbrysonn.atebits.data.TweetResult
+import dev.bobbrysonn.atebits.data.UiTweet
 import dev.bobbrysonn.atebits.data.displayAspectRatio
-import dev.bobbrysonn.atebits.data.fullDisplayText
 import dev.bobbrysonn.atebits.data.fullSizeUrl
-import dev.bobbrysonn.atebits.data.hasMoreText
 import dev.bobbrysonn.atebits.data.isVideo
-import dev.bobbrysonn.atebits.data.previewText
 import dev.bobbrysonn.atebits.data.previewUrl
-import dev.bobbrysonn.atebits.data.smallAvatarUrl
-import dev.bobbrysonn.atebits.data.toLegacy
-import dev.bobbrysonn.atebits.data.unwrapDisplayable
-import java.time.Duration
-import java.time.Instant
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
-import java.util.Locale
-import kotlin.math.max
 
 @Composable
 fun PostItem(
-    tweet: TweetResult,
+    tweet: UiTweet,
     onImageClick: (String) -> Unit = {},
-    onTweetClick: (TweetResult) -> Unit = {},
+    onTweetClick: (UiTweet) -> Unit = {},
     // Flatter tone for cards that play a supporting role (e.g. replies under
     // the focal tweet on the detail screen)
     muted: Boolean = false,
@@ -68,11 +56,6 @@ fun PostItem(
     // truncated preview with "Show more"
     showFullText: Boolean = false
 ) {
-    val user = tweet.core?.userResults?.result?.toLegacy()
-    val tweetContent = tweet.legacy
-    val media = tweetContent?.extendedEntities?.media ?: tweetContent?.entities?.media
-    val timeAgo = tweetContent?.createdAt?.let { formatTimeAgo(it) }
-
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -92,7 +75,7 @@ fun PostItem(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // Profile picture
                 AsyncImage(
-                    model = user?.smallAvatarUrl(),
+                    model = tweet.user.avatarUrl,
                     contentDescription = "Profile Picture",
                     modifier = Modifier
                         .size(48.dp)
@@ -105,7 +88,7 @@ fun PostItem(
                 // Name, username, time posted
                 Column {
                     Text(
-                        text = user?.name ?: "Unknown",
+                        text = tweet.user.name,
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -115,13 +98,13 @@ fun PostItem(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "@${user?.screenName ?: "unknown"}",
+                            text = "@${tweet.user.handle}",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        if (!timeAgo.isNullOrEmpty()) {
+                        if (tweet.timeAgo.isNotEmpty()) {
                             Text(
-                                text = timeAgo,
+                                text = tweet.timeAgo,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -132,10 +115,10 @@ fun PostItem(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            var expanded by rememberSaveable(tweet.rest_id) { mutableStateOf(false) }
+            var expanded by rememberSaveable(tweet.id) { mutableStateOf(false) }
             val showFull = showFullText || expanded
             Text(
-                text = if (showFull) tweet.fullDisplayText() else tweet.previewText(),
+                text = if (showFull) tweet.fullText else tweet.previewText,
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -143,7 +126,7 @@ fun PostItem(
                 ShowMoreLabel(style = MaterialTheme.typography.bodyLarge) { expanded = true }
             }
 
-            val firstMedia = media?.firstOrNull()
+            val firstMedia = tweet.media
             if (firstMedia?.isVideo == true) {
                 Spacer(modifier = Modifier.height(12.dp))
                 TweetVideo(media = firstMedia)
@@ -164,7 +147,7 @@ fun PostItem(
                 )
             }
 
-            tweet.quotedStatusResult?.result?.unwrapDisplayable()?.let { quoted ->
+            tweet.quoted?.let { quoted ->
                 Spacer(modifier = Modifier.height(12.dp))
                 QuotedTweet(
                     tweet = quoted,
@@ -175,7 +158,7 @@ fun PostItem(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            TweetActionRow(tweetContent)
+            TweetActionRow(tweet)
         }
     }
 }
@@ -198,7 +181,7 @@ fun ShowMoreLabel(style: androidx.compose.ui.text.TextStyle, onClick: () -> Unit
  */
 @Composable
 fun TweetActionRow(
-    tweetContent: dev.bobbrysonn.atebits.data.TweetLegacy?,
+    tweet: UiTweet,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -207,17 +190,17 @@ fun TweetActionRow(
     ) {
         TweetAction(
             icon = Icons.Outlined.ModeComment,
-            count = tweetContent?.replyCount ?: 0,
+            count = tweet.replyCount,
             contentDescription = "Replies"
         )
         TweetAction(
             icon = Icons.Outlined.Repeat,
-            count = tweetContent?.retweetCount ?: 0,
+            count = tweet.retweetCount,
             contentDescription = "Retweets"
         )
         TweetAction(
             icon = Icons.Outlined.FavoriteBorder,
-            count = tweetContent?.favoriteCount ?: 0,
+            count = tweet.favoriteCount,
             contentDescription = "Likes"
         )
         TweetAction(
@@ -231,15 +214,10 @@ fun TweetActionRow(
 // Compact bordered card for a quoted tweet, nested inside the quoting PostItem.
 @Composable
 private fun QuotedTweet(
-    tweet: TweetResult,
+    tweet: UiTweet,
     onImageClick: (String) -> Unit,
     onClick: () -> Unit
 ) {
-    val user = tweet.core?.userResults?.result?.toLegacy()
-    val tweetContent = tweet.legacy
-    val media = tweetContent?.extendedEntities?.media ?: tweetContent?.entities?.media
-    val timeAgo = tweetContent?.createdAt?.let { formatTimeAgo(it) }
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -253,7 +231,7 @@ private fun QuotedTweet(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             AsyncImage(
-                model = user?.smallAvatarUrl(),
+                model = tweet.user.avatarUrl,
                 contentDescription = "Profile Picture",
                 modifier = Modifier
                     .size(24.dp)
@@ -261,7 +239,7 @@ private fun QuotedTweet(
                 contentScale = ContentScale.Crop
             )
             Text(
-                text = user?.name ?: "Unknown",
+                text = tweet.user.name,
                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
@@ -269,14 +247,14 @@ private fun QuotedTweet(
                 modifier = Modifier.weight(1f, fill = false)
             )
             Text(
-                text = "@${user?.screenName ?: "unknown"}",
+                text = "@${tweet.user.handle}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1
             )
-            if (!timeAgo.isNullOrEmpty()) {
+            if (tweet.timeAgo.isNotEmpty()) {
                 Text(
-                    text = timeAgo,
+                    text = tweet.timeAgo,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -285,9 +263,9 @@ private fun QuotedTweet(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        var expanded by rememberSaveable(tweet.rest_id) { mutableStateOf(false) }
+        var expanded by rememberSaveable(tweet.id) { mutableStateOf(false) }
         Text(
-            text = if (expanded) tweet.fullDisplayText() else tweet.previewText(),
+            text = if (expanded) tweet.fullText else tweet.previewText,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface
         )
@@ -295,7 +273,7 @@ private fun QuotedTweet(
             ShowMoreLabel(style = MaterialTheme.typography.bodyMedium) { expanded = true }
         }
 
-        val firstMedia = media?.firstOrNull()
+        val firstMedia = tweet.media
         if (firstMedia?.isVideo == true) {
             Spacer(modifier = Modifier.height(8.dp))
             TweetVideo(media = firstMedia)
@@ -319,7 +297,7 @@ private fun QuotedTweet(
 @Composable
 fun TweetAction(
     icon: ImageVector,
-    count: Int?,
+    count: String?,
     contentDescription: String
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -332,43 +310,10 @@ fun TweetAction(
         if (count != null) {
             Spacer(modifier = Modifier.width(4.dp))
             Text(
-                text = formatCount(count),
+                text = count,
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-    }
-}
-
-fun formatCount(count: Int): String {
-    return when {
-        count < 1000 -> count.toString()
-        count < 1000000 -> String.format("%.1fk", count / 1000.0)
-        else -> String.format("%.1fM", count / 1000000.0)
-    }
-}
-
-private val twitterDateFormatter: DateTimeFormatter =
-    DateTimeFormatter.ofPattern("EEE MMM dd HH:mm:ss Z yyyy", Locale.ENGLISH)
-
-fun formatTimeAgo(createdAt: String): String {
-    return try {
-        val tweetTime = ZonedDateTime.parse(createdAt, twitterDateFormatter).toInstant()
-        val duration = Duration.between(tweetTime, Instant.now())
-        val minutes = max(1L, duration.toMinutes())
-        val hours = duration.toHours()
-        val days = duration.toDays()
-        val weeks = days / 7
-        val years = days / 365
-
-        when {
-            minutes < 60 -> "${minutes}m"
-            hours < 24 -> "${hours}h"
-            days < 7 -> "${days}d"
-            weeks < 52 -> "${weeks}w"
-            else -> "${years}y"
-        }
-    } catch (e: Exception) {
-        ""
     }
 }

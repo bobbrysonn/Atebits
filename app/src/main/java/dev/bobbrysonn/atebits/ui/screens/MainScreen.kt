@@ -262,11 +262,8 @@ private fun MainScaffold(
                 LaunchedEffect(Unit) { onSelectItem(0) }
                 HomeScreen(
                     onTweetClick = { tweet ->
-                        val tweetId = tweet.rest_id ?: tweet.tweet?.rest_id
-                        if (tweetId != null) {
-                            TweetCache.put(tweetId, tweet)
-                            navController.navigate("tweet/$tweetId")
-                        }
+                        TweetCache.put(tweet.id, tweet)
+                        navController.navigate("tweet/${tweet.id}")
                     },
                     onAvatarClick = onOpenDrawer
                 )
@@ -321,11 +318,8 @@ private fun MainScaffold(
                         userId = userId,
                         onBack = { navController.popBackStack() },
                         onTweetClick = { tweet ->
-                            val id = tweet.rest_id ?: tweet.tweet?.rest_id
-                            if (id != null) {
-                                TweetCache.put(id, tweet)
-                                navController.navigate("tweet/$id")
-                            }
+                            TweetCache.put(tweet.id, tweet)
+                            navController.navigate("tweet/${tweet.id}")
                         }
                     )
                 }
@@ -355,11 +349,8 @@ private fun MainScaffold(
                         // Tapping a comment opens it as its own detail screen with its
                         // sub-replies — recursion via the nav back stack.
                         onCommentClick = { tweet ->
-                            val id = tweet.rest_id ?: tweet.tweet?.rest_id
-                            if (id != null) {
-                                TweetCache.put(id, tweet)
-                                navController.navigate("tweet/$id")
-                            }
+                            TweetCache.put(tweet.id, tweet)
+                            navController.navigate("tweet/${tweet.id}")
                         }
                     )
                 }

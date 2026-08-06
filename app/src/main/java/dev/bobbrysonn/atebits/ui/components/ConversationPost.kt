@@ -34,16 +34,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import dev.bobbrysonn.atebits.data.TweetResult
+import dev.bobbrysonn.atebits.data.UiTweet
 import dev.bobbrysonn.atebits.data.displayAspectRatio
-import dev.bobbrysonn.atebits.data.fullDisplayText
 import dev.bobbrysonn.atebits.data.fullSizeUrl
-import dev.bobbrysonn.atebits.data.hasMoreText
 import dev.bobbrysonn.atebits.data.isVideo
-import dev.bobbrysonn.atebits.data.previewText
 import dev.bobbrysonn.atebits.data.previewUrl
-import dev.bobbrysonn.atebits.data.smallAvatarUrl
-import dev.bobbrysonn.atebits.data.toLegacy
 
 /**
  * A conversation thread as one card: parent tweet(s) and the reply, joined by
@@ -52,9 +47,9 @@ import dev.bobbrysonn.atebits.data.toLegacy
  */
 @Composable
 fun ConversationPost(
-    tweets: List<TweetResult>,
+    tweets: List<UiTweet>,
     onImageClick: (String) -> Unit = {},
-    onTweetClick: (TweetResult) -> Unit = {}
+    onTweetClick: (UiTweet) -> Unit = {}
 ) {
     Card(
         modifier = Modifier
@@ -81,16 +76,11 @@ fun ConversationPost(
 
 @Composable
 private fun ThreadedTweet(
-    tweet: TweetResult,
+    tweet: UiTweet,
     isLast: Boolean,
     onImageClick: (String) -> Unit,
-    onTweetClick: (TweetResult) -> Unit
+    onTweetClick: (UiTweet) -> Unit
 ) {
-    val user = tweet.core?.userResults?.result?.toLegacy()
-    val tweetContent = tweet.legacy
-    val media = tweetContent?.extendedEntities?.media ?: tweetContent?.entities?.media
-    val timeAgo = tweetContent?.createdAt?.let { formatTimeAgo(it) }
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -103,7 +93,7 @@ private fun ThreadedTweet(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             AsyncImage(
-                model = user?.smallAvatarUrl(),
+                model = tweet.user.avatarUrl,
                 contentDescription = "Profile Picture",
                 modifier = Modifier
                     .size(40.dp)
@@ -134,7 +124,7 @@ private fun ThreadedTweet(
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Text(
-                    text = user?.name ?: "Unknown",
+                    text = tweet.user.name,
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
@@ -142,22 +132,22 @@ private fun ThreadedTweet(
                     modifier = Modifier.weight(1f, fill = false)
                 )
                 Text(
-                    text = "@${user?.screenName ?: "unknown"}",
+                    text = "@${tweet.user.handle}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1
                 )
-                if (!timeAgo.isNullOrEmpty()) {
+                if (tweet.timeAgo.isNotEmpty()) {
                     Text(
-                        text = timeAgo,
+                        text = tweet.timeAgo,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
 
-            var expanded by rememberSaveable(tweet.rest_id) { mutableStateOf(false) }
-            val text = if (expanded) tweet.fullDisplayText() else tweet.previewText()
+            var expanded by rememberSaveable(tweet.id) { mutableStateOf(false) }
+            val text = if (expanded) tweet.fullText else tweet.previewText
             if (text.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
@@ -170,7 +160,7 @@ private fun ThreadedTweet(
                 }
             }
 
-            val firstMedia = media?.firstOrNull()
+            val firstMedia = tweet.media
             if (firstMedia?.isVideo == true) {
                 Spacer(modifier = Modifier.height(8.dp))
                 TweetVideo(media = firstMedia)
@@ -190,7 +180,7 @@ private fun ThreadedTweet(
             }
 
             Spacer(modifier = Modifier.height(8.dp))
-            TweetActionRow(tweetContent)
+            TweetActionRow(tweet)
         }
     }
 }

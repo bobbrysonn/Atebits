@@ -6,14 +6,14 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.bobbrysonn.atebits.data.TimelineRepository
-import dev.bobbrysonn.atebits.data.TweetResult
+import dev.bobbrysonn.atebits.data.UiTweet
 import kotlinx.coroutines.launch
 
 class HomeViewModel(
     private val timelineRepository: TimelineRepository
 ) : ViewModel() {
 
-    var tweets by mutableStateOf<List<TweetResult>>(emptyList())
+    var tweets by mutableStateOf<List<UiTweet>>(emptyList())
         private set
 
     var isLoading by mutableStateOf(false)
@@ -53,15 +53,11 @@ class HomeViewModel(
                 // Fetch new tweets
                 val newTweets = timelineRepository.getHomeTimeline()
                 
-                // Filter out duplicates based on rest_id or tweet.rest_id
-                // This is a simple deduplication strategy.
-                // Ideally we would use since_id if the API supported it easily, 
-                // but merging and deduplicating is safer given our limited API knowledge.
-                val currentIds = tweets.mapNotNull { it.rest_id ?: it.tweet?.rest_id }.toSet()
-                val uniqueNewTweets = newTweets.filter { 
-                    val id = it.rest_id ?: it.tweet?.rest_id
-                    id != null && !currentIds.contains(id)
-                }
+                // Filter out duplicates by id. Ideally we would use since_id if
+                // the API supported it easily, but merging and deduplicating is
+                // safer given our limited API knowledge.
+                val currentIds = tweets.map { it.id }.toSet()
+                val uniqueNewTweets = newTweets.filter { it.id !in currentIds }
 
                 // Prepend new tweets to the existing list
                 tweets = uniqueNewTweets + tweets

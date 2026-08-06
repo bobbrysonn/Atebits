@@ -37,9 +37,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import dev.bobbrysonn.atebits.data.AuthRepository
 import dev.bobbrysonn.atebits.data.TimelineRepository
-import dev.bobbrysonn.atebits.data.TweetResult
 import dev.bobbrysonn.atebits.data.TweetCache
 import dev.bobbrysonn.atebits.data.TweetDetailCache
+import dev.bobbrysonn.atebits.data.UiTweet
 import dev.bobbrysonn.atebits.ui.components.PostItem
 import kotlinx.coroutines.launch
 
@@ -47,15 +47,15 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 fun TweetDetailScreen(
     tweetId: String,
-    initialTweet: TweetResult? = null,
+    initialTweet: UiTweet? = null,
     onBack: () -> Unit,
-    onCommentClick: (TweetResult) -> Unit = {}
+    onCommentClick: (UiTweet) -> Unit = {}
 ) {
     val context = LocalContext.current
     val authRepository = remember { AuthRepository(context) }
     val timelineRepository = remember { TimelineRepository(authRepository) }
     val coroutineScope = rememberCoroutineScope()
-    var mainTweet by remember { mutableStateOf<TweetResult?>(initialTweet ?: TweetCache.get(tweetId)) }
+    var mainTweet by remember { mutableStateOf<UiTweet?>(initialTweet ?: TweetCache.get(tweetId)) }
     // Seed from cache synchronously: if comments only arrive after the first
     // frame, the restored LazyColumn scroll position gets clamped to the top
     // when navigating back from a sub-comment thread.
@@ -150,7 +150,7 @@ fun TweetDetailScreen(
                                     // Already on this tweet's detail; only navigate for a
                                     // different tweet (e.g. tapping its quoted tweet card).
                                     onTweetClick = { clicked ->
-                                        if (clicked.rest_id != tweetId) onCommentClick(clicked)
+                                        if (clicked.id != tweetId) onCommentClick(clicked)
                                     }
                                 )
                             }
@@ -182,7 +182,7 @@ fun TweetDetailScreen(
 
                         items(
                             comments,
-                            key = { it.rest_id ?: it.hashCode() },
+                            key = { it.id },
                             contentType = { "reply" }
                         ) { tweet ->
                             PostItem(

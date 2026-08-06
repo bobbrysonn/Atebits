@@ -7,13 +7,13 @@ import java.util.concurrent.ConcurrentHashMap
  * Keeping it simple since data is short-lived.
  */
 object TweetCache {
-    private val cache = mutableMapOf<String, TweetResult>()
+    private val cache = mutableMapOf<String, UiTweet>()
 
-    fun put(id: String, tweet: TweetResult) {
+    fun put(id: String, tweet: UiTweet) {
         cache[id] = tweet
     }
 
-    fun get(id: String): TweetResult? = cache[id]
+    fun get(id: String): UiTweet? = cache[id]
 }
 
 /**

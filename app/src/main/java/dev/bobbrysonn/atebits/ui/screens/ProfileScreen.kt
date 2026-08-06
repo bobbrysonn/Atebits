@@ -55,14 +55,14 @@ import dev.bobbrysonn.atebits.data.ProfileCache
 import dev.bobbrysonn.atebits.data.ProfileTab
 import dev.bobbrysonn.atebits.data.ProfileTimelineItem
 import dev.bobbrysonn.atebits.data.TimelineRepository
-import dev.bobbrysonn.atebits.data.TweetResult
+import dev.bobbrysonn.atebits.data.UiTweet
 import dev.bobbrysonn.atebits.data.UserLegacy
 import dev.bobbrysonn.atebits.data.bigAvatarUrl
 import dev.bobbrysonn.atebits.data.toLegacy
 import dev.bobbrysonn.atebits.ui.components.ConversationPost
 import dev.bobbrysonn.atebits.ui.components.LocalListScrollInProgress
 import dev.bobbrysonn.atebits.ui.components.PostItem
-import dev.bobbrysonn.atebits.ui.components.formatCount
+import dev.bobbrysonn.atebits.data.formatCount
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -75,7 +75,7 @@ private val AvatarSize = 84.dp
 fun ProfileScreen(
     userId: String,
     onBack: () -> Unit,
-    onTweetClick: (TweetResult) -> Unit = {}
+    onTweetClick: (UiTweet) -> Unit = {}
 ) {
     val context = LocalContext.current
     val repository = remember { TimelineRepository(AuthRepository(context)) }
@@ -170,7 +170,7 @@ fun ProfileScreen(
                     }
                     else -> items(
                         rows,
-                        key = { it.tweets.firstOrNull()?.rest_id ?: it.hashCode() },
+                        key = { it.tweets.firstOrNull()?.id ?: it.hashCode() },
                         contentType = { if (it.tweets.size > 1) "conversation" else "tweet" }
                     ) { item ->
                         if (item.tweets.size > 1) {

@@ -63,7 +63,7 @@ import dev.bobbrysonn.atebits.data.AuthRepository
 import dev.bobbrysonn.atebits.data.CurrentUser
 import dev.bobbrysonn.atebits.data.TimelineRepository
 import dev.bobbrysonn.atebits.data.TweetCache
-import dev.bobbrysonn.atebits.data.TweetResult
+import dev.bobbrysonn.atebits.data.UiTweet
 import dev.bobbrysonn.atebits.data.smallAvatarUrl
 import dev.bobbrysonn.atebits.ui.components.LocalListScrollInProgress
 import dev.bobbrysonn.atebits.ui.components.PostItem
@@ -80,7 +80,7 @@ private val HeaderHeight = HeaderRowHeight + TabRowHeight
 @Composable
 fun HomeScreen(
     modifier: Modifier = Modifier,
-    onTweetClick: (TweetResult) -> Unit = {},
+    onTweetClick: (UiTweet) -> Unit = {},
     onAvatarClick: () -> Unit = {}
 ) {
     var state by remember { mutableIntStateOf(0) }
@@ -178,7 +178,7 @@ fun HomeScreen(
                         // tweet slots.
                         items(
                             viewModel.tweets,
-                            key = { it.rest_id ?: it.tweet?.rest_id ?: it.hashCode() },
+                            key = { it.id },
                             contentType = { "tweet" }
                         ) { tweet ->
                             PostItem(

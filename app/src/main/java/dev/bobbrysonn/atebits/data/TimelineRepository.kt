@@ -10,8 +10,8 @@ import retrofit2.Retrofit
 
 // A focal tweet with its direct replies; sub-replies load when a reply is opened.
 data class TweetDetail(
-    val mainTweet: TweetResult?,
-    val replies: List<TweetResult>
+    val mainTweet: UiTweet?,
+    val replies: List<UiTweet>
 )
 
 enum class ProfileTab(val label: String) {
@@ -23,7 +23,7 @@ enum class ProfileTab(val label: String) {
 
 // One profile timeline row: a single tweet, or a conversation thread
 // (parent tweet(s) + the user's reply) on the Replies tab.
-data class ProfileTimelineItem(val tweets: List<TweetResult>)
+data class ProfileTimelineItem(val tweets: List<UiTweet>)
 
 class TimelineRepository(private val authRepository: AuthRepository) {
     private val json = Json {
@@ -110,7 +110,7 @@ class TimelineRepository(private val authRepository: AuthRepository) {
                     if (entry.entryId.contains("promoted", ignoreCase = true)) return@forEach
                     entry.content?.itemContent?.let { item ->
                         if (item.promotedMetadata == null) {
-                            item.tweetResults?.result?.unwrapDisplayable()
+                            item.tweetResults?.result?.toUi()
                                 ?.let { items.add(ProfileTimelineItem(listOf(it))) }
                         }
                     }
@@ -120,7 +120,7 @@ class TimelineRepository(private val authRepository: AuthRepository) {
                     val moduleTweets = entry.content?.items.orEmpty().mapNotNull { moduleItem ->
                         moduleItem.item?.itemContent
                             ?.takeIf { it.promotedMetadata == null }
-                            ?.tweetResults?.result?.unwrapDisplayable()
+                            ?.tweetResults?.result?.toUi()
                     }
                     if (moduleTweets.isNotEmpty()) {
                         if (tab == ProfileTab.Replies) {
@@ -142,14 +142,14 @@ class TimelineRepository(private val authRepository: AuthRepository) {
     private fun retrofit2.HttpException.errorSnippet(): String? =
         response()?.errorBody()?.string()?.take(500)
 
-    suspend fun getHomeTimeline(): List<TweetResult> {
+    suspend fun getHomeTimeline(): List<UiTweet> {
         // Variables from QuaX client.dart (with userId="1" as seen in _for_you.dart)
         val variables = "{\"userId\":\"1\",\"count\":20,\"includePromotedContent\":false,\"withQuickPromoteEligibilityTweetFields\":true,\"withVoice\":true,\"withV2Timeline\":true}"
-        
+
         try {
             val response = api.getHomeTimeline(variables, TIMELINE_FEATURES)
-            
-            val tweets = mutableListOf<TweetResult>()
+
+            val tweets = mutableListOf<UiTweet>()
 
             response.data?.home?.homeTimelineUrt?.instructions?.forEach { instruction ->
                 if (instruction.type == "TimelineAddEntries") {
@@ -159,7 +159,7 @@ class TimelineRepository(private val authRepository: AuthRepository) {
                         if (entry.content?.itemContent?.promotedMetadata != null) return@forEach
 
                         entry.content?.itemContent?.tweetResults?.result
-                            ?.unwrapDisplayable()?.let { tweets.add(it) }
+                            ?.toUi()?.let { tweets.add(it) }
                     }
                 }
             }
@@ -176,8 +176,8 @@ class TimelineRepository(private val authRepository: AuthRepository) {
         val variables = "{\"focalTweetId\":\"$tweetId\",\"referrer\":\"profile\",\"controller_data\":\"DAACDAABDAABCgABAAAAAAAAAAAKAAkNObspUxawBQAAAAA=\",\"with_rux_injections\":false,\"includePromotedContent\":false,\"withCommunity\":true,\"withQuickPromoteEligibilityTweetFields\":true,\"withBirdwatchNotes\":true,\"withVoice\":true,\"withV2Timeline\":true}"
         try {
             val response = api.getTweetDetail(variables, TIMELINE_FEATURES)
-            var mainTweet: TweetResult? = null
-            val replies = mutableListOf<TweetResult>()
+            var mainTweet: UiTweet? = null
+            val replies = mutableListOf<UiTweet>()
 
             response.data?.threadedConversation?.instructions?.forEach { instruction ->
                 if (instruction.type == "TimelineAddEntries") {
@@ -186,8 +186,8 @@ class TimelineRepository(private val authRepository: AuthRepository) {
                         // standalone entries.
                         entry.content?.itemContent?.let { item ->
                             if (item.promotedMetadata != null) return@forEach
-                            item.tweetResults?.result?.unwrapDisplayable()?.let { tweet ->
-                                if (tweet.rest_id == tweetId) mainTweet = tweet
+                            item.tweetResults?.result?.toUi()?.let { tweet ->
+                                if (tweet.id == tweetId) mainTweet = tweet
                             }
                         }
 
@@ -199,7 +199,7 @@ class TimelineRepository(private val authRepository: AuthRepository) {
                                 val item = moduleItem.item?.itemContent
                                     ?: return@firstNotNullOfOrNull null
                                 if (item.promotedMetadata != null) return@firstNotNullOfOrNull null
-                                item.tweetResults?.result?.unwrapDisplayable()
+                                item.tweetResults?.result?.toUi()
                             }?.let { replies.add(it) }
                         }
                     }
