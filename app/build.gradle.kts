@@ -23,11 +23,15 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // No distribution signing yet; debug-signed keeps the minified
+            // build installable for on-device perf evaluation.
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
     compileOptions {

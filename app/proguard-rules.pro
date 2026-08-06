@@ -1,21 +1,24 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# Readable release stack traces
+-keepattributes SourceFile,LineNumberTable
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# --- kotlinx.serialization ---
+# The Retrofit converter resolves serializers reflectively by Type at runtime,
+# so the generated serializer plumbing for our models must survive R8.
+-keepattributes RuntimeVisibleAnnotations,AnnotationDefault
+-keepclassmembers @kotlinx.serialization.Serializable class dev.bobbrysonn.atebits.** {
+    *** Companion;
+}
+-keepclasseswithmembers class dev.bobbrysonn.atebits.**$Companion {
+    kotlinx.serialization.KSerializer serializer(...);
+}
+-keep,includedescriptorclasses class dev.bobbrysonn.atebits.**$$serializer { *; }
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
-
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# --- Retrofit (R8 full-mode rules from the Retrofit README) ---
+# Suspend API methods return @Serializable types via generic signatures.
+-keepattributes Signature, InnerClasses, EnclosingMethod
+-keepclassmembers,allowshrinking,allowobfuscation interface dev.bobbrysonn.atebits.network.HomeTimelineApi {
+    @retrofit2.http.* <methods>;
+}
+-keep,allowobfuscation,allowshrinking interface retrofit2.Call
+-keep,allowobfuscation,allowshrinking class retrofit2.Response
+-keep,allowobfuscation,allowshrinking class kotlin.coroutines.Continuation
