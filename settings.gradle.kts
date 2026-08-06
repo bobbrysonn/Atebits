@@ -21,3 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Atebits"
 include(":app")
+include(":baselineprofile")

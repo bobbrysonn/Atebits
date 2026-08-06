@@ -13,6 +13,10 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Atebits">
+        <!-- Lets macrobenchmark/baseline-profile tooling profile release builds -->
+        <profileable
+            android:shell="true"
+            tools:targetApi="q" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
