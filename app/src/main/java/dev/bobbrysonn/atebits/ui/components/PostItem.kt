@@ -49,6 +49,7 @@ fun PostItem(
     tweet: UiTweet,
     onImageClick: (String) -> Unit = {},
     onTweetClick: (UiTweet) -> Unit = {},
+    onUserClick: (String) -> Unit = {},
     // Flatter tone for cards that play a supporting role (e.g. replies under
     // the focal tweet on the detail screen)
     muted: Boolean = false,
@@ -71,94 +72,98 @@ fun PostItem(
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                // Profile picture
-                AsyncImage(
-                    model = tweet.user.avatarUrl,
-                    contentDescription = "Profile Picture",
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape),
-                    contentScale = ContentScale.Crop
-                )
+        // Official-client anatomy: the avatar sits in its own left column,
+        // top-aligned; everything else lives in the content column beside it.
+        Row(modifier = Modifier.padding(12.dp)) {
+            AsyncImage(
+                model = tweet.user.avatarUrl,
+                contentDescription = "Open ${tweet.user.name}'s profile",
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .clickable { tweet.user.id?.let(onUserClick) },
+                contentScale = ContentScale.Crop
+            )
 
-                Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(10.dp))
 
-                // Name, username, time posted
-                Column {
+            Column(modifier = Modifier.weight(1f)) {
+                // Name, username, and time on one line to save vertical space
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
                     Text(
                         text = tweet.user.name,
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
                     )
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
+                    Text(
+                        text = "@${tweet.user.handle}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
+                    )
+                    if (tweet.timeAgo.isNotEmpty()) {
                         Text(
-                            text = "@${tweet.user.handle}",
-                            style = MaterialTheme.typography.bodyMedium,
+                            text = tweet.timeAgo,
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        if (tweet.timeAgo.isNotEmpty()) {
-                            Text(
-                                text = tweet.timeAgo,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(2.dp))
 
-            var expanded by rememberSaveable(tweet.id) { mutableStateOf(false) }
-            val showFull = showFullText || expanded
-            Text(
-                text = if (showFull) tweet.fullText else tweet.previewText,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            if (!showFull && tweet.hasMoreText) {
-                ShowMoreLabel(style = MaterialTheme.typography.bodyLarge) { expanded = true }
-            }
-
-            val firstMedia = tweet.media
-            if (firstMedia?.isVideo == true) {
-                Spacer(modifier = Modifier.height(12.dp))
-                TweetVideo(media = firstMedia)
-            } else if (firstMedia?.mediaUrlHttps != null) {
-                val imageUrl = firstMedia.mediaUrlHttps
-                Spacer(modifier = Modifier.height(12.dp))
-                AsyncImage(
-                    // Card shows the 1200px variant; the tap hands the viewer
-                    // the full-size URL so only it pays for the big decode
-                    model = firstMedia.previewUrl("medium"),
-                    contentDescription = "Tweet Image",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(firstMedia.displayAspectRatio())
-                        .clip(RoundedCornerShape(16.dp))
-                        .clickable { onImageClick(firstMedia.fullSizeUrl() ?: imageUrl) },
-                    contentScale = ContentScale.Crop
+                var expanded by rememberSaveable(tweet.id) { mutableStateOf(false) }
+                val showFull = showFullText || expanded
+                Text(
+                    text = if (showFull) tweet.fullText else tweet.previewText,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
-            }
+                if (!showFull && tweet.hasMoreText) {
+                    ShowMoreLabel(style = MaterialTheme.typography.bodyLarge) { expanded = true }
+                }
 
-            tweet.quoted?.let { quoted ->
+                val firstMedia = tweet.media
+                if (firstMedia?.isVideo == true) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    TweetVideo(media = firstMedia)
+                } else if (firstMedia?.mediaUrlHttps != null) {
+                    val imageUrl = firstMedia.mediaUrlHttps
+                    Spacer(modifier = Modifier.height(12.dp))
+                    AsyncImage(
+                        // Card shows the 1200px variant; the tap hands the viewer
+                        // the full-size URL so only it pays for the big decode
+                        model = firstMedia.previewUrl("medium"),
+                        contentDescription = "Tweet Image",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(firstMedia.displayAspectRatio())
+                            .clip(RoundedCornerShape(16.dp))
+                            .clickable { onImageClick(firstMedia.fullSizeUrl() ?: imageUrl) },
+                        contentScale = ContentScale.Crop
+                    )
+                }
+
+                tweet.quoted?.let { quoted ->
+                    Spacer(modifier = Modifier.height(12.dp))
+                    QuotedTweet(
+                        tweet = quoted,
+                        onImageClick = onImageClick,
+                        onClick = { onTweetClick(quoted) },
+                        onUserClick = onUserClick
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(12.dp))
-                QuotedTweet(
-                    tweet = quoted,
-                    onImageClick = onImageClick,
-                    onClick = { onTweetClick(quoted) }
-                )
+
+                TweetActionRow(tweet)
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            TweetActionRow(tweet)
         }
     }
 }
@@ -216,7 +221,8 @@ fun TweetActionRow(
 private fun QuotedTweet(
     tweet: UiTweet,
     onImageClick: (String) -> Unit,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onUserClick: (String) -> Unit = {}
 ) {
     Column(
         modifier = Modifier
@@ -232,10 +238,11 @@ private fun QuotedTweet(
         ) {
             AsyncImage(
                 model = tweet.user.avatarUrl,
-                contentDescription = "Profile Picture",
+                contentDescription = "Open ${tweet.user.name}'s profile",
                 modifier = Modifier
                     .size(24.dp)
-                    .clip(CircleShape),
+                    .clip(CircleShape)
+                    .clickable { tweet.user.id?.let(onUserClick) },
                 contentScale = ContentScale.Crop
             )
             Text(

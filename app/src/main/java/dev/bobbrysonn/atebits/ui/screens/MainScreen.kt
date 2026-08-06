@@ -265,6 +265,7 @@ private fun MainScaffold(
                         TweetCache.put(tweet.id, tweet)
                         navController.navigate("tweet/${tweet.id}")
                     },
+                    onUserClick = { userId -> navController.navigate("profile/$userId") },
                     onAvatarClick = onOpenDrawer
                 )
             }
@@ -320,7 +321,10 @@ private fun MainScaffold(
                         onTweetClick = { tweet ->
                             TweetCache.put(tweet.id, tweet)
                             navController.navigate("tweet/${tweet.id}")
-                        }
+                        },
+                        // A different user's avatar in a conversation opens
+                        // their profile; the nav stack handles the recursion.
+                        onUserClick = { id -> navController.navigate("profile/$id") }
                     )
                 }
             }
@@ -351,7 +355,8 @@ private fun MainScaffold(
                         onCommentClick = { tweet ->
                             TweetCache.put(tweet.id, tweet)
                             navController.navigate("tweet/${tweet.id}")
-                        }
+                        },
+                        onUserClick = { id -> navController.navigate("profile/$id") }
                     )
                 }
             }

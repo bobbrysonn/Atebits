@@ -49,7 +49,8 @@ import dev.bobbrysonn.atebits.data.previewUrl
 fun ConversationPost(
     tweets: List<UiTweet>,
     onImageClick: (String) -> Unit = {},
-    onTweetClick: (UiTweet) -> Unit = {}
+    onTweetClick: (UiTweet) -> Unit = {},
+    onUserClick: (String) -> Unit = {}
 ) {
     Card(
         modifier = Modifier
@@ -67,7 +68,8 @@ fun ConversationPost(
                     tweet = tweet,
                     isLast = index == tweets.lastIndex,
                     onImageClick = onImageClick,
-                    onTweetClick = onTweetClick
+                    onTweetClick = onTweetClick,
+                    onUserClick = onUserClick
                 )
             }
         }
@@ -79,7 +81,8 @@ private fun ThreadedTweet(
     tweet: UiTweet,
     isLast: Boolean,
     onImageClick: (String) -> Unit,
-    onTweetClick: (UiTweet) -> Unit
+    onTweetClick: (UiTweet) -> Unit,
+    onUserClick: (String) -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -94,10 +97,11 @@ private fun ThreadedTweet(
         ) {
             AsyncImage(
                 model = tweet.user.avatarUrl,
-                contentDescription = "Profile Picture",
+                contentDescription = "Open ${tweet.user.name}'s profile",
                 modifier = Modifier
                     .size(40.dp)
-                    .clip(CircleShape),
+                    .clip(CircleShape)
+                    .clickable { tweet.user.id?.let(onUserClick) },
                 contentScale = ContentScale.Crop
             )
             if (!isLast) {

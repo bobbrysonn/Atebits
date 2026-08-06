@@ -40,6 +40,9 @@ data class UiTweet(
 
 @Immutable
 data class UiUser(
+    // rest_id, for avatar-tap navigation to the profile; null on the rare
+    // payloads that omit it (tap becomes a no-op)
+    val id: String?,
     val name: String,
     // Without the "@"; surfaces add their own prefix
     val handle: String,
@@ -51,10 +54,12 @@ data class UiUser(
 fun TweetResult.toUi(): UiTweet? {
     val tweet = unwrapDisplayable() ?: return null
     val legacy = tweet.legacy ?: return null
-    val user = tweet.core?.userResults?.result?.toLegacy()
+    val userResult = tweet.core?.userResults?.result
+    val user = userResult?.toLegacy()
     return UiTweet(
         id = tweet.rest_id ?: return null,
         user = UiUser(
+            id = userResult?.rest_id,
             name = user?.name ?: "Unknown",
             handle = user?.screenName ?: "unknown",
             avatarUrl = user?.smallAvatarUrl()

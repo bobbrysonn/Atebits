@@ -75,7 +75,8 @@ private val AvatarSize = 84.dp
 fun ProfileScreen(
     userId: String,
     onBack: () -> Unit,
-    onTweetClick: (UiTweet) -> Unit = {}
+    onTweetClick: (UiTweet) -> Unit = {},
+    onUserClick: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val repository = remember { TimelineRepository(AuthRepository(context)) }
@@ -177,14 +178,16 @@ fun ProfileScreen(
                             ConversationPost(
                                 tweets = item.tweets,
                                 onImageClick = { url -> selectedImageUrl = url },
-                                onTweetClick = onTweetClick
+                                onTweetClick = onTweetClick,
+                                onUserClick = onUserClick
                             )
                         } else {
                             item.tweets.firstOrNull()?.let { tweet ->
                                 PostItem(
                                     tweet = tweet,
                                     onImageClick = { url -> selectedImageUrl = url },
-                                    onTweetClick = onTweetClick
+                                    onTweetClick = onTweetClick,
+                                    onUserClick = onUserClick
                                 )
                             }
                         }

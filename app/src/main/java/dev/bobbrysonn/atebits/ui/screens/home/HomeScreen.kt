@@ -81,6 +81,7 @@ private val HeaderHeight = HeaderRowHeight + TabRowHeight
 fun HomeScreen(
     modifier: Modifier = Modifier,
     onTweetClick: (UiTweet) -> Unit = {},
+    onUserClick: (String) -> Unit = {},
     onAvatarClick: () -> Unit = {}
 ) {
     var state by remember { mutableIntStateOf(0) }
@@ -184,7 +185,8 @@ fun HomeScreen(
                             PostItem(
                                 tweet = tweet,
                                 onImageClick = { url -> selectedImageUrl = url },
-                                onTweetClick = onTweetClick
+                                onTweetClick = onTweetClick,
+                                onUserClick = onUserClick
                             )
                         }
                     }

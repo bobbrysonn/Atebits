@@ -49,7 +49,8 @@ fun TweetDetailScreen(
     tweetId: String,
     initialTweet: UiTweet? = null,
     onBack: () -> Unit,
-    onCommentClick: (UiTweet) -> Unit = {}
+    onCommentClick: (UiTweet) -> Unit = {},
+    onUserClick: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val authRepository = remember { AuthRepository(context) }
@@ -147,6 +148,7 @@ fun TweetDetailScreen(
                                     tweet = tweet,
                                     showFullText = true,
                                     onImageClick = { url -> selectedImageUrl = url },
+                                    onUserClick = onUserClick,
                                     // Already on this tweet's detail; only navigate for a
                                     // different tweet (e.g. tapping its quoted tweet card).
                                     onTweetClick = { clicked ->
@@ -189,6 +191,7 @@ fun TweetDetailScreen(
                                 tweet = tweet,
                                 onImageClick = { url -> selectedImageUrl = url },
                                 onTweetClick = onCommentClick,
+                                onUserClick = onUserClick,
                                 muted = true
                             )
                         }
