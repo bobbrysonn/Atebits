@@ -52,7 +52,13 @@ Supporting facts:
   `./gradlew :app:generateReleaseBaselineProfile` — the run **logs the device
   out** (instrumentation uninstall drops app data), so log in first and again
   after; a logged-out run silently produces a login-screen profile.
-- Release is debug-signed on purpose so the minified build installs for
-  on-device evaluation.
+- Release signing: `keystore.properties` + `release.keystore` at the repo root
+  (gitignored; also stored in GitHub Actions secrets — KEYSTORE_BASE64 etc.).
+  Without them, release falls back to debug signing so any checkout builds.
+  Losing the keystore means a new app identity for every install — keep it
+  backed up.
+- Releases ship by pushing a `v*` tag: the Release workflow builds the signed
+  APK (versionName from the tag, versionCode from the run number) and attaches
+  it to a GitHub Release; a `-` in the tag (v0.5.0-beta1) marks it pre-release.
 - MCP debug-server screenshots are downscaled vs the device's 1080x2404 input
   space — scale tap coordinates up by ~1.2x or small targets (tab rows) miss.

@@ -15,3 +15,7 @@ build/
 local.properties
 UserTweetsAndReplies.json
 Likes.json
+
+# Release signing — never commit; backed up in GitHub Actions secrets
+release.keystore
+keystore.properties

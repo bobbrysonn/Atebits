@@ -1,0 +1,50 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write # create the GitHub Release + upload the APK
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Materialize signing keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > release.keystore
+          cat > keystore.properties <<EOF
+          storeFile=release.keystore
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          EOF
+
+      # versionName comes from the tag (v0.2.0 -> 0.2.0); versionCode is the
+      # monotonically increasing workflow run number, which Android requires
+      # to only ever go up across installed updates.
+      - name: Build signed release APK
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          ./gradlew :app:assembleRelease \
+            -PversionName="$VERSION" \
+            -PversionCode="${{ github.run_number }}"
+          mv app/build/outputs/apk/release/app-release.apk "atebits-$VERSION.apk"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: atebits-*.apk
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}

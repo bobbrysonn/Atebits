@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,6 +7,13 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.androidx.baselineprofile)
 }
+
+// Release signing lives outside the repo: keystore.properties + release.keystore
+// at the repo root (gitignored; CI materializes them from Actions secrets).
+// Absent both, release falls back to debug signing so any checkout still builds.
+val keystoreProperties = rootProject.file("keystore.properties")
+    .takeIf { it.exists() }
+    ?.let { file -> Properties().apply { file.inputStream().use { load(it) } } }
 
 android {
     namespace = "dev.bobbrysonn.atebits"
@@ -16,10 +25,23 @@ android {
         applicationId = "dev.bobbrysonn.atebits"
         minSdk = 35
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        // Overridden by the release workflow from the git tag:
+        // -PversionName=X.Y.Z -PversionCode=N (N = CI run number)
+        versionCode = (findProperty("versionCode") as String?)?.toInt() ?: 1
+        versionName = (findProperty("versionName") as String?) ?: "0.1.0-dev"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        if (keystoreProperties != null) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+            }
+        }
     }
 
     buildTypes {
@@ -30,9 +52,13 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // No distribution signing yet; debug-signed keeps the minified
-            // build installable for on-device perf evaluation.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (keystoreProperties != null) {
+                signingConfigs.getByName("release")
+            } else {
+                // Keeps checkouts without the keystore (PR CI, fresh clones)
+                // building an installable APK.
+                signingConfigs.getByName("debug")
+            }
         }
     }
     compileOptions {
