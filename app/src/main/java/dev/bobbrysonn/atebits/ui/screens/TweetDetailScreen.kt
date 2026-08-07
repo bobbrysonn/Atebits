@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -64,7 +65,6 @@ fun TweetDetailScreen(
         mutableStateOf(TweetDetailCache.get(tweetId)?.replies ?: emptyList())
     }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    var selectedImageUrl by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
 
     val loadDetail: suspend () -> Unit = {
@@ -147,7 +147,6 @@ fun TweetDetailScreen(
                                 PostItem(
                                     tweet = tweet,
                                     showFullText = true,
-                                    onImageClick = { url -> selectedImageUrl = url },
                                     onUserClick = onUserClick,
                                     // Already on this tweet's detail; only navigate for a
                                     // different tweet (e.g. tapping its quoted tweet card).
@@ -164,7 +163,7 @@ fun TweetDetailScreen(
                                     text = "Replies",
                                     style = MaterialTheme.typography.labelLarge,
                                     color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.padding(start = 24.dp, top = 16.dp)
+                                    modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp)
                                 )
                             }
                         }
@@ -177,7 +176,8 @@ fun TweetDetailScreen(
                                         .padding(top = 8.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    LoadingIndicator()
+                                    // Inline size; the default 48dp container reads huge mid-list
+                                    LoadingIndicator(modifier = Modifier.size(28.dp))
                                 }
                             }
                         }
@@ -189,21 +189,12 @@ fun TweetDetailScreen(
                         ) { tweet ->
                             PostItem(
                                 tweet = tweet,
-                                onImageClick = { url -> selectedImageUrl = url },
                                 onTweetClick = onCommentClick,
-                                onUserClick = onUserClick,
-                                muted = true
+                                onUserClick = onUserClick
                             )
                         }
                     }
                 }
-            }
-
-            if (selectedImageUrl != null) {
-                ImageViewerScreen(
-                    imageUrl = selectedImageUrl!!,
-                    onDismiss = { selectedImageUrl = null }
-                )
             }
         }
     }

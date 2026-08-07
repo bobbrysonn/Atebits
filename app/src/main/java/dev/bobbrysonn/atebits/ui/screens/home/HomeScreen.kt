@@ -33,12 +33,14 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,7 +69,6 @@ import dev.bobbrysonn.atebits.data.UiTweet
 import dev.bobbrysonn.atebits.data.smallAvatarUrl
 import dev.bobbrysonn.atebits.ui.components.LocalListScrollInProgress
 import dev.bobbrysonn.atebits.ui.components.PostItem
-import dev.bobbrysonn.atebits.ui.screens.ImageViewerScreen
 import kotlin.math.roundToInt
 
 // Two-row header like the official client: avatar + centered brand mark,
@@ -75,6 +76,10 @@ import kotlin.math.roundToInt
 private val HeaderRowHeight = 56.dp
 private val TabRowHeight = 48.dp
 private val HeaderHeight = HeaderRowHeight + TabRowHeight
+
+// How far down the feed counts as "reading stale tweets" — the trigger for a
+// silent background refresh of the newest page
+private const val FreshTweetsScrollDepth = 15
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -101,14 +106,68 @@ fun HomeScreen(
         }
     )
 
-    var selectedImageUrl by remember { mutableStateOf<String?>(null) }
     val pullRefreshState = rememberPullToRefreshState()
     val listState = rememberLazyListState()
 
-    // Collapse-on-scroll: the header rides list scrolls (down hides, up
-    // reveals) and settles fully shown or fully hidden after a fling.
+    // Collapse-on-scroll header offset; declared here because the Home
+    // re-tap handler below also reveals the header.
     val headerHeightPx = with(LocalDensity.current) { HeaderHeight.toPx() }
     var headerOffsetPx by remember { mutableFloatStateOf(0f) }
+
+    // Snap to the top when the view model asks (manual refresh prepends) or
+    // when Home is re-tapped in the navigation bar. Both are guarded against
+    // re-firing when the screen re-enters composition via tab restore — an
+    // unguarded LaunchedEffect would wipe the restored scroll position.
+    var handledScrollSignal by rememberSaveable { mutableIntStateOf(viewModel.scrollToTopSignal) }
+    LaunchedEffect(viewModel.scrollToTopSignal) {
+        if (viewModel.scrollToTopSignal != handledScrollSignal) {
+            handledScrollSignal = viewModel.scrollToTopSignal
+            listState.animateScrollToItem(0)
+        }
+    }
+    var handledReselect by rememberSaveable { mutableIntStateOf(HomeFeedState.homeReselects) }
+    LaunchedEffect(HomeFeedState.homeReselects) {
+        if (HomeFeedState.homeReselects != handledReselect) {
+            handledReselect = HomeFeedState.homeReselects
+            viewModel.markFreshTweetsSeen()
+            headerOffsetPx = 0f
+            listState.animateScrollToItem(0)
+        }
+    }
+
+    // Once the user has browsed deep enough to be reading stale tweets, fetch
+    // the newest page silently; the prepend stays anchored (stable keys) and
+    // the Home item's badge announces it instead of a viewport jump.
+    val scrolledDeep by remember {
+        derivedStateOf { listState.firstVisibleItemIndex >= FreshTweetsScrollDepth }
+    }
+    LaunchedEffect(scrolledDeep) {
+        if (scrolledDeep) viewModel.maybeRefreshInBackground()
+    }
+
+    // Reaching the real top means the fresh tweets have been seen — retire
+    // the badge without requiring a Home tap.
+    val freshTweetsSeen by remember {
+        derivedStateOf { listState.firstVisibleItemIndex == 0 && HomeFeedState.hasFreshTweets }
+    }
+    LaunchedEffect(freshTweetsSeen) {
+        if (freshTweetsSeen) viewModel.markFreshTweetsSeen()
+    }
+
+    // Fetch the next page once the viewport nears the loaded tail
+    val nearListEnd by remember {
+        derivedStateOf {
+            val info = listState.layoutInfo
+            val lastVisible = info.visibleItemsInfo.lastOrNull()?.index ?: 0
+            info.totalItemsCount > 0 && lastVisible >= info.totalItemsCount - 5
+        }
+    }
+    LaunchedEffect(nearListEnd) {
+        if (nearListEnd) viewModel.loadMoreTweets()
+    }
+
+    // Collapse-on-scroll: the header rides list scrolls (down hides, up
+    // reveals) and settles fully shown or fully hidden after a fling.
     val headerScrollConnection = remember(headerHeightPx) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
@@ -184,10 +243,23 @@ fun HomeScreen(
                         ) { tweet ->
                             PostItem(
                                 tweet = tweet,
-                                onImageClick = { url -> selectedImageUrl = url },
                                 onTweetClick = onTweetClick,
                                 onUserClick = onUserClick
                             )
+                        }
+
+                        if (viewModel.isLoadingMore) {
+                            item(key = "loading-more", contentType = "loading") {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 24.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    // Inline size; the default 48dp container reads huge mid-list
+                                    LoadingIndicator(modifier = Modifier.size(28.dp))
+                                }
+                            }
                         }
                     }
                 }
@@ -201,13 +273,6 @@ fun HomeScreen(
             onAvatarClick = onAvatarClick,
             modifier = Modifier.offset { IntOffset(0, headerOffsetPx.roundToInt()) }
         )
-
-        if (selectedImageUrl != null) {
-            ImageViewerScreen(
-                imageUrl = selectedImageUrl!!,
-                onDismiss = { selectedImageUrl = null }
-            )
-        }
     }
 }
 

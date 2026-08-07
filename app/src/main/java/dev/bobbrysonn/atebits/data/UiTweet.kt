@@ -26,13 +26,19 @@ data class UiTweet(
     val fullText: String,
     // True when fullText reveals text previewText cuts off ("Show more")
     val hasMoreText: Boolean,
-    // First displayable media, kept raw: the video path needs the streams,
-    // ids, and aspect ratio, and image URLs derive from it on demand
-    val media: MediaEntity?,
+    // All displayable media (X allows up to 4), kept raw: the video path
+    // needs the streams, ids, and aspect ratio, and image URLs derive from
+    // the entities on demand
+    val media: List<MediaEntity>,
     val replyCount: String,
     val retweetCount: String,
     val favoriteCount: String,
+    // Empty when the author has view counts disabled; the action row skips it
+    val viewCount: String,
     val quoted: UiTweet?,
+    // Display name of the account that retweeted this; non-null marks the row
+    // as a retweet and rows draw a "reposted" attribution line above it
+    val repostedBy: String? = null,
     // The DTO this row was mapped from, for flows that still need it
     // (detail refetch, cache identity)
     val raw: TweetResult
@@ -54,10 +60,24 @@ data class UiUser(
 fun TweetResult.toUi(): UiTweet? {
     val tweet = unwrapDisplayable() ?: return null
     val legacy = tweet.legacy ?: return null
+    val id = tweet.rest_id ?: return null
+
+    // A retweet is a thin wrapper whose own text is a truncated "RT @user: …"
+    // echo: render the original tweet, credited with a "reposted" attribution.
+    // The wrapper's rest_id stays as the row id so timeline keys are unique
+    // even when the original also appears in the same list.
+    legacy.retweetedStatusResult?.result?.toUi()?.let { original ->
+        val reposter = tweet.core?.userResults?.result?.toLegacy()
+        return original.copy(
+            id = id,
+            repostedBy = reposter?.name ?: reposter?.screenName ?: "Someone"
+        )
+    }
+
     val userResult = tweet.core?.userResults?.result
     val user = userResult?.toLegacy()
     return UiTweet(
-        id = tweet.rest_id ?: return null,
+        id = id,
         user = UiUser(
             id = userResult?.rest_id,
             name = user?.name ?: "Unknown",
@@ -68,16 +88,19 @@ fun TweetResult.toUi(): UiTweet? {
         previewText = tweet.previewText(),
         fullText = tweet.fullDisplayText(),
         hasMoreText = tweet.hasMoreText,
-        media = (legacy.extendedEntities?.media ?: legacy.entities?.media)?.firstOrNull(),
+        media = (legacy.extendedEntities?.media ?: legacy.entities?.media).orEmpty(),
         replyCount = formatCount(legacy.replyCount),
         retweetCount = formatCount(legacy.retweetCount),
         favoriteCount = formatCount(legacy.favoriteCount),
+        viewCount = tweet.views?.count?.toLongOrNull()?.let(::formatCount) ?: "",
         quoted = tweet.quotedStatusResult?.result?.toUi(),
         raw = tweet
     )
 }
 
-fun formatCount(count: Int): String = when {
+fun formatCount(count: Int): String = formatCount(count.toLong())
+
+fun formatCount(count: Long): String = when {
     count < 1_000 -> count.toString()
     count < 1_000_000 -> (count / 100).let { "${it / 10}.${it % 10}k" }
     else -> (count / 100_000).let { "${it / 10}.${it % 10}M" }

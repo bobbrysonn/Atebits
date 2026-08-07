@@ -153,10 +153,15 @@ fun VideoViewerScreen(
             .onSizeChanged { containerHeight = it.height }
             .background(Color.Black.copy(alpha = backdropAlpha))
             .pointerInput(Unit) {
+                // Cumulative drag lives outside the animatable: snapTo runs in
+                // launched coroutines, so on a fast fling onDragEnd would read
+                // offsetY before the queued snaps land and miss the dismissal.
+                var dragTotal = 0f
                 detectDragGestures(
+                    onDragStart = { dragTotal = 0f },
                     onDragEnd = {
-                        if (abs(offsetY.value) > 300) {
-                            animateOutAndDismiss(if (offsetY.value > 0) 1f else -1f)
+                        if (abs(dragTotal) > 300) {
+                            animateOutAndDismiss(if (dragTotal > 0) 1f else -1f)
                         } else {
                             scope.launch { offsetY.animateTo(0f, tween(200)) }
                         }
@@ -164,7 +169,9 @@ fun VideoViewerScreen(
                     onDrag = { change, dragAmount ->
                         change.consume()
                         if (!dismissing) {
-                            scope.launch { offsetY.snapTo(offsetY.value + dragAmount.y) }
+                            dragTotal += dragAmount.y
+                            val target = dragTotal
+                            scope.launch { offsetY.snapTo(target) }
                         }
                     }
                 )

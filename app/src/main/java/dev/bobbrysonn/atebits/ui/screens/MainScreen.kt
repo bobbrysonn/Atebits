@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -37,6 +39,7 @@ import dev.bobbrysonn.atebits.data.AuthRepository
 import dev.bobbrysonn.atebits.data.CurrentUser
 import dev.bobbrysonn.atebits.data.TimelineRepository
 import dev.bobbrysonn.atebits.data.smallAvatarUrl
+import dev.bobbrysonn.atebits.ui.components.ImageViewerState
 import dev.bobbrysonn.atebits.ui.components.VideoPlaybackState
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.Composable
@@ -57,6 +60,7 @@ import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
+import dev.bobbrysonn.atebits.ui.screens.home.HomeFeedState
 import dev.bobbrysonn.atebits.ui.screens.home.HomeScreen
 
 import androidx.compose.animation.AnimatedContentTransitionScope
@@ -138,8 +142,18 @@ fun MainScreen() {
             )
         }
 
-        // Fullscreen video lives above the drawer and scaffold so it covers
-        // the tab row and bottom navigation bar, like the official client.
+        // Fullscreen media viewers live above the drawer and scaffold so they
+        // cover the tab row and bottom navigation bar, like the official client.
+        ImageViewerState.viewing?.let { viewing ->
+            ImageViewerScreen(
+                images = viewing.images,
+                initialIndex = viewing.initialIndex,
+                previewName = viewing.previewName,
+                originBounds = viewing.originBounds,
+                onDismiss = { ImageViewerState.viewing = null }
+            )
+        }
+
         VideoPlaybackState.fullscreenVideo?.let { (media, positionMs) ->
             VideoViewerScreen(
                 media = media,
@@ -213,14 +227,34 @@ private fun MainScaffold(
                 items.forEachIndexed { index, item ->
                     NavigationBarItem(
                         icon = {
-                            Icon(
-                                if (selectedItem == index) icons[index].first else icons[index].second,
-                                contentDescription = item
-                            )
+                            val icon = @Composable {
+                                Icon(
+                                    if (selectedItem == index) icons[index].first else icons[index].second,
+                                    contentDescription = item
+                                )
+                            }
+                            // A background refresh loaded tweets the user
+                            // hasn't seen: dot the Home item until they do
+                            if (index == 0 && HomeFeedState.hasFreshTweets) {
+                                BadgedBox(
+                                    badge = {
+                                        Badge(containerColor = MaterialTheme.colorScheme.primary)
+                                    }
+                                ) { icon() }
+                            } else {
+                                icon()
+                            }
                         },
                         label = { Text(item) },
                         selected = selectedItem == index,
                         onClick = {
+                            // Re-tapping Home while the feed is showing scrolls
+                            // it to the top (of the fresh tweets, if any landed)
+                            // instead of re-navigating
+                            if (index == 0 && navController.currentDestination?.route == "home") {
+                                HomeFeedState.homeReselects++
+                                return@NavigationBarItem
+                            }
                             onSelectItem(index)
                             // When clicking the bottom bar item, navigate to the route
                             // This logic is a bit mixed with the current "selectedItem" state

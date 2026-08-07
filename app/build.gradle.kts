@@ -45,6 +45,13 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Same signature as release so debug/release builds swap on-device
+            // without an uninstall (which would drop the login session).
+            if (keystoreProperties != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true

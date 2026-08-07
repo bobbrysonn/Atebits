@@ -94,7 +94,6 @@ fun ProfileScreen(
     }
     var tabLoading by remember { mutableStateOf(false) }
     val tabErrors = remember { mutableStateMapOf<ProfileTab, String>() }
-    var selectedImageUrl by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(userId) {
         if (!ProfileCache.isUserFresh(userId)) {
@@ -158,7 +157,8 @@ fun ProfileScreen(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            LoadingIndicator()
+                            // Inline size; the default 48dp container reads huge mid-list
+                            LoadingIndicator(modifier = Modifier.size(28.dp))
                         }
                     }
                     tabErrors[selectedTab] != null -> item(key = "tab-error", contentType = "tab-error") {
@@ -177,7 +177,6 @@ fun ProfileScreen(
                         if (item.tweets.size > 1) {
                             ConversationPost(
                                 tweets = item.tweets,
-                                onImageClick = { url -> selectedImageUrl = url },
                                 onTweetClick = onTweetClick,
                                 onUserClick = onUserClick
                             )
@@ -185,7 +184,6 @@ fun ProfileScreen(
                             item.tweets.firstOrNull()?.let { tweet ->
                                 PostItem(
                                     tweet = tweet,
-                                    onImageClick = { url -> selectedImageUrl = url },
                                     onTweetClick = onTweetClick,
                                     onUserClick = onUserClick
                                 )
@@ -206,13 +204,6 @@ fun ProfileScreen(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back"
-                )
-            }
-
-            if (selectedImageUrl != null) {
-                ImageViewerScreen(
-                    imageUrl = selectedImageUrl!!,
-                    onDismiss = { selectedImageUrl = null }
                 )
             }
         }

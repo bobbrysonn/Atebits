@@ -25,6 +25,10 @@ enum class ProfileTab(val label: String) {
 // (parent tweet(s) + the user's reply) on the Replies tab.
 data class ProfileTimelineItem(val tweets: List<UiTweet>)
 
+// One page of the home timeline; bottomCursor fetches the next one
+// (null when the feed has no continuation).
+data class TimelinePage(val tweets: List<UiTweet>, val bottomCursor: String?)
+
 class TimelineRepository(private val authRepository: AuthRepository) {
     private val json = Json {
         ignoreUnknownKeys = true
@@ -142,18 +146,28 @@ class TimelineRepository(private val authRepository: AuthRepository) {
     private fun retrofit2.HttpException.errorSnippet(): String? =
         response()?.errorBody()?.string()?.take(500)
 
-    suspend fun getHomeTimeline(): List<UiTweet> {
-        // Variables from QuaX client.dart (with userId="1" as seen in _for_you.dart)
-        val variables = "{\"userId\":\"1\",\"count\":20,\"includePromotedContent\":false,\"withQuickPromoteEligibilityTweetFields\":true,\"withVoice\":true,\"withV2Timeline\":true}"
+    suspend fun getHomeTimeline(cursor: String? = null): TimelinePage {
+        // Variables from QuaX client.dart (with userId="1" as seen in _for_you.dart).
+        // Cursors are base64-ish but escape defensively for the raw JSON string.
+        val cursorPart = cursor
+            ?.replace("\\", "\\\\")?.replace("\"", "\\\"")
+            ?.let { ",\"cursor\":\"$it\"" } ?: ""
+        val variables = "{\"userId\":\"1\",\"count\":20$cursorPart,\"includePromotedContent\":false,\"withQuickPromoteEligibilityTweetFields\":true,\"withVoice\":true,\"withV2Timeline\":true}"
 
         try {
             val response = api.getHomeTimeline(variables, TIMELINE_FEATURES)
 
             val tweets = mutableListOf<UiTweet>()
+            var bottomCursor: String? = null
 
             response.data?.home?.homeTimelineUrt?.instructions?.forEach { instruction ->
                 if (instruction.type == "TimelineAddEntries") {
                     instruction.entries?.forEach { entry ->
+                        if (entry.entryId.startsWith("cursor-bottom")) {
+                            bottomCursor = entry.content?.value
+                                ?: entry.content?.itemContent?.value
+                            return@forEach
+                        }
                         // Filter out ads
                         if (entry.entryId.contains("promoted", ignoreCase = true)) return@forEach
                         if (entry.content?.itemContent?.promotedMetadata != null) return@forEach
@@ -163,8 +177,8 @@ class TimelineRepository(private val authRepository: AuthRepository) {
                     }
                 }
             }
-            println("TimelineRepository: Found ${tweets.size} tweets")
-            return tweets
+            println("TimelineRepository: Found ${tweets.size} tweets, cursor=${bottomCursor != null}")
+            return TimelinePage(tweets, bottomCursor)
         } catch (e: Exception) {
             println("TimelineRepository: Error fetching timeline: ${e.message}")
             e.printStackTrace()

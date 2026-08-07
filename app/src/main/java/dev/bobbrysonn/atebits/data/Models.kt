@@ -52,7 +52,10 @@ data class TimelineEntry(
 data class TimelineEntryContent(
     val entryType: String = "",
     @SerialName("itemContent") val itemContent: TimelineItemContent? = null,
-    val items: List<TimelineModuleItem>? = null
+    val items: List<TimelineModuleItem>? = null,
+    // TimelineTimelineCursor entries: the opaque token for the next page
+    val value: String? = null,
+    val cursorType: String? = null
 )
 
 @Serializable
@@ -70,7 +73,9 @@ data class TimelineModuleItemData(
 data class TimelineItemContent(
     val itemType: String = "",
     @SerialName("tweet_results") val tweetResults: TweetResults? = null,
-    @SerialName("promotedMetadata") val promotedMetadata: PromotedMetadata? = null
+    @SerialName("promotedMetadata") val promotedMetadata: PromotedMetadata? = null,
+    // Some query vintages nest the cursor here instead of on the entry content
+    val value: String? = null
 )
 
 @Serializable
@@ -93,7 +98,16 @@ data class TweetResult(
     val legacy: TweetLegacy? = null,
     @SerialName("note_tweet") val noteTweet: NoteTweet? = null,
     val tweet: TweetResult? = null, // For retweets or quoted tweets where result is a wrapper
-    @SerialName("quoted_status_result") val quotedStatusResult: TweetResults? = null
+    @SerialName("quoted_status_result") val quotedStatusResult: TweetResults? = null,
+    val views: TweetViews? = null
+)
+
+// Impression count lives outside legacy; count is a decimal string, absent
+// when the author has view counts disabled (state != "EnabledWithCount")
+@Serializable
+data class TweetViews(
+    val count: String? = null,
+    val state: String? = null
 )
 
 // Longform (>280 char) posts: legacy.full_text holds only the truncated
@@ -227,7 +241,10 @@ data class TweetLegacy(
     @SerialName("retweet_count") val retweetCount: Int = 0,
     @SerialName("reply_count") val replyCount: Int = 0,
     val entities: TweetEntities? = null,
-    @SerialName("extended_entities") val extendedEntities: TweetEntities? = null
+    @SerialName("extended_entities") val extendedEntities: TweetEntities? = null,
+    // Present when this tweet is a retweet: the original tweet. The wrapper's
+    // own full_text is just a truncated "RT @user: …" echo — never render it.
+    @SerialName("retweeted_status_result") val retweetedStatusResult: TweetResults? = null
 )
 
 @Serializable

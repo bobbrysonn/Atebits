@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -17,8 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,44 +33,37 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import dev.bobbrysonn.atebits.data.UiTweet
-import dev.bobbrysonn.atebits.data.displayAspectRatio
-import dev.bobbrysonn.atebits.data.fullSizeUrl
-import dev.bobbrysonn.atebits.data.isVideo
-import dev.bobbrysonn.atebits.data.previewUrl
 
 /**
- * A conversation thread as one card: parent tweet(s) and the reply, joined by
- * a vertical connector line between avatars — like the official client's
- * Replies tab.
+ * A conversation thread as one flat row group: parent tweet(s) and the reply,
+ * joined by a vertical connector line between avatars — like the official
+ * client's Replies tab. Same edge-to-edge, hairline-divided anatomy as
+ * PostItem.
  */
 @Composable
 fun ConversationPost(
     tweets: List<UiTweet>,
-    onImageClick: (String) -> Unit = {},
     onTweetClick: (UiTweet) -> Unit = {},
     onUserClick: (String) -> Unit = {}
 ) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 12.dp, top = 12.dp, end = 12.dp),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 10.dp)
+        ) {
             tweets.forEachIndexed { index, tweet ->
                 ThreadedTweet(
                     tweet = tweet,
                     isLast = index == tweets.lastIndex,
-                    onImageClick = onImageClick,
                     onTweetClick = onTweetClick,
                     onUserClick = onUserClick
                 )
             }
         }
+
+        HorizontalDivider(
+            thickness = 0.5.dp,
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+        )
     }
 }
 
@@ -80,10 +71,13 @@ fun ConversationPost(
 private fun ThreadedTweet(
     tweet: UiTweet,
     isLast: Boolean,
-    onImageClick: (String) -> Unit,
     onTweetClick: (UiTweet) -> Unit,
     onUserClick: (String) -> Unit
 ) {
+    tweet.repostedBy?.let { name ->
+        RepostAttribution(name)
+        Spacer(modifier = Modifier.height(4.dp))
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -136,18 +130,16 @@ private fun ThreadedTweet(
                     modifier = Modifier.weight(1f, fill = false)
                 )
                 Text(
-                    text = "@${tweet.user.handle}",
+                    text = if (tweet.timeAgo.isEmpty()) {
+                        "@${tweet.user.handle}"
+                    } else {
+                        "@${tweet.user.handle} · ${tweet.timeAgo}"
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-                if (tweet.timeAgo.isNotEmpty()) {
-                    Text(
-                        text = tweet.timeAgo,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
             }
 
             var expanded by rememberSaveable(tweet.id) { mutableStateOf(false) }
@@ -164,23 +156,9 @@ private fun ThreadedTweet(
                 }
             }
 
-            val firstMedia = tweet.media
-            if (firstMedia?.isVideo == true) {
+            if (tweet.media.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
-                TweetVideo(media = firstMedia)
-            } else if (firstMedia?.mediaUrlHttps != null) {
-                val imageUrl = firstMedia.mediaUrlHttps
-                Spacer(modifier = Modifier.height(8.dp))
-                AsyncImage(
-                    model = firstMedia.previewUrl("small"),
-                    contentDescription = "Tweet Image",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(firstMedia.displayAspectRatio())
-                        .clip(RoundedCornerShape(12.dp))
-                        .clickable { onImageClick(firstMedia.fullSizeUrl() ?: imageUrl) },
-                    contentScale = ContentScale.Crop
-                )
+                TweetMedia(media = tweet.media, compact = true)
             }
 
             Spacer(modifier = Modifier.height(8.dp))
