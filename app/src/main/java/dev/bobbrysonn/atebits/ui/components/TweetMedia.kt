@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import dev.bobbrysonn.atebits.data.MediaEntity
@@ -64,20 +65,23 @@ fun TweetMedia(
         .clip(shape)
         .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), shape)
 
+    // Plain holder keyed by photo index, not compose state: the
+    // onGloballyPositioned callbacks fire every scroll frame and only the
+    // click handlers read the values
+    val cellBounds = remember { HashMap<Int, Rect>() }
+    val cornerRadius = if (compact) 12.dp else 16.dp
+
     photos.singleOrNull()?.let { single ->
         // Timeline slots show the 1200px variant (680px when compact); the
         // viewer opens on this exact cached bitmap, then swaps in full size
         val previewName = if (compact) "small" else "medium"
-        // Plain holder, not compose state: onGloballyPositioned fires every
-        // scroll frame and only the click handler reads the value
-        val originBounds = remember { arrayOf(Rect.Zero) }
         AsyncImage(
             model = single.previewUrl(previewName),
             contentDescription = "Tweet Image",
             modifier = frame
                 .aspectRatio(single.displayAspectRatio())
-                .onGloballyPositioned { originBounds[0] = it.boundsInRoot() }
-                .clickable { openMedia(photos, 0, previewName, originBounds[0]) },
+                .onGloballyPositioned { cellBounds[0] = it.boundsInRoot() }
+                .clickable { openMedia(photos, 0, previewName, cellBounds, cornerRadius) },
             contentScale = ContentScale.Crop
         )
         return
@@ -88,20 +92,20 @@ fun TweetMedia(
             modifier = frame.aspectRatio(16f / 9f),
             horizontalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            MediaCell(photos, 0, Modifier.weight(1f).fillMaxSize())
-            MediaCell(photos, 1, Modifier.weight(1f).fillMaxSize())
+            MediaCell(photos, 0, cellBounds, Modifier.weight(1f).fillMaxSize())
+            MediaCell(photos, 1, cellBounds, Modifier.weight(1f).fillMaxSize())
         }
         3 -> Row(
             modifier = frame.aspectRatio(16f / 9f),
             horizontalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            MediaCell(photos, 0, Modifier.weight(1f).fillMaxSize())
+            MediaCell(photos, 0, cellBounds, Modifier.weight(1f).fillMaxSize())
             Column(
                 modifier = Modifier.weight(1f).fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                MediaCell(photos, 1, Modifier.weight(1f).fillMaxWidth())
-                MediaCell(photos, 2, Modifier.weight(1f).fillMaxWidth())
+                MediaCell(photos, 1, cellBounds, Modifier.weight(1f).fillMaxWidth())
+                MediaCell(photos, 2, cellBounds, Modifier.weight(1f).fillMaxWidth())
             }
         }
         else -> Column(
@@ -112,15 +116,15 @@ fun TweetMedia(
                 modifier = Modifier.weight(1f).fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                MediaCell(photos, 0, Modifier.weight(1f).fillMaxSize())
-                MediaCell(photos, 1, Modifier.weight(1f).fillMaxSize())
+                MediaCell(photos, 0, cellBounds, Modifier.weight(1f).fillMaxSize())
+                MediaCell(photos, 1, cellBounds, Modifier.weight(1f).fillMaxSize())
             }
             Row(
                 modifier = Modifier.weight(1f).fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                MediaCell(photos, 2, Modifier.weight(1f).fillMaxSize())
-                MediaCell(photos, 3, Modifier.weight(1f).fillMaxSize())
+                MediaCell(photos, 2, cellBounds, Modifier.weight(1f).fillMaxSize())
+                MediaCell(photos, 3, cellBounds, Modifier.weight(1f).fillMaxSize())
             }
         }
     }
@@ -128,22 +132,26 @@ fun TweetMedia(
 
 // Route a media tap: videos go straight to the fullscreen player; photos open
 // the pager on the tapped image, with grid videos filtered out of its pages.
+// Every still's thumbnail bounds ride along so the viewer can morph any page
+// back into its own cell, not just the tapped one.
 private fun openMedia(
     photos: List<MediaEntity>,
     index: Int,
     previewName: String,
-    originBounds: Rect
+    cellBounds: Map<Int, Rect>,
+    cornerRadius: Dp
 ) {
     val tapped = photos[index]
     if (tapped.isVideo) {
         VideoPlaybackState.fullscreenVideo = tapped to 0L
     } else {
-        val stills = photos.filter { !it.isVideo }
+        val stills = photos.withIndex().filter { !it.value.isVideo }
         ImageViewerState.viewing = ImageViewing(
-            images = stills,
-            initialIndex = stills.indexOf(tapped).coerceAtLeast(0),
+            images = stills.map { it.value },
+            initialIndex = stills.indexOfFirst { it.index == index }.coerceAtLeast(0),
             previewName = previewName,
-            originBounds = originBounds
+            originBounds = stills.map { cellBounds[it.index] ?: Rect.Zero },
+            cornerRadius = cornerRadius
         )
     }
 }
@@ -155,16 +163,15 @@ private fun openMedia(
 private fun MediaCell(
     photos: List<MediaEntity>,
     index: Int,
+    cellBounds: HashMap<Int, Rect>,
     modifier: Modifier
 ) {
     val media = photos[index]
-    // Plain holder, not compose state: onGloballyPositioned fires every
-    // scroll frame and only the click handler reads the value
-    val originBounds = remember { arrayOf(Rect.Zero) }
     Box(
         modifier = modifier
-            .onGloballyPositioned { originBounds[0] = it.boundsInRoot() }
-            .clickable { openMedia(photos, index, "small", originBounds[0]) }
+            .onGloballyPositioned { cellBounds[index] = it.boundsInRoot() }
+            // Grid cells are square-cornered, so the morph starts unrounded
+            .clickable { openMedia(photos, index, "small", cellBounds, 0.dp) }
     ) {
         AsyncImage(
             model = media.previewUrl("small"),

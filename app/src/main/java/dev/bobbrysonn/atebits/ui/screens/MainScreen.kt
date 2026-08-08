@@ -150,6 +150,7 @@ fun MainScreen() {
                 initialIndex = viewing.initialIndex,
                 previewName = viewing.previewName,
                 originBounds = viewing.originBounds,
+                cornerRadius = viewing.cornerRadius,
                 onDismiss = { ImageViewerState.viewing = null }
             )
         }

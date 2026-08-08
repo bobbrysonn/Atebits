@@ -4,6 +4,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import dev.bobbrysonn.atebits.data.MediaEntity
 
 /**
@@ -20,13 +22,16 @@ object ImageViewerState {
  * [previewName] is the pbs.twimg.com size variant the tapping surface had on
  * screen; the viewer seeds each page with that already-decoded bitmap (Coil
  * memory-cache key) so opening is seamless instead of flashing while the
- * full-size image loads. [originBounds] is the tapped thumbnail's rect in
- * root coordinates: the viewer expands from it and shrinks back to it on
- * dismissal (Rect.Zero falls back to a centered scale).
+ * full-size image loads. [originBounds] holds each image's thumbnail rect in
+ * root coordinates, aligned with [images]: the viewer morphs out of the
+ * tapped one and shrinks the current page back into its own on dismissal
+ * (Rect.Zero entries fall back to a centered scale). [cornerRadius] is the
+ * thumbnail frame's rounding, morphed away as the image expands.
  */
 data class ImageViewing(
     val images: List<MediaEntity>,
     val initialIndex: Int,
     val previewName: String,
-    val originBounds: Rect = Rect.Zero
+    val originBounds: List<Rect> = emptyList(),
+    val cornerRadius: Dp = 0.dp
 )

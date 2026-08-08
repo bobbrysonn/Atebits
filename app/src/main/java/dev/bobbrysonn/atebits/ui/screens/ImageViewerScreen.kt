@@ -2,8 +2,7 @@ package dev.bobbrysonn.atebits.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -20,26 +19,37 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import dev.bobbrysonn.atebits.data.MediaEntity
+import dev.bobbrysonn.atebits.data.displayAspectRatio
 import dev.bobbrysonn.atebits.data.fullSizeUrl
 import dev.bobbrysonn.atebits.data.previewUrl
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-// ~100ms slower than the previous 280 (which was ~100ms slower than the
-// StiffnessMediumLow default of 400): spring settle time scales with
-// 1/sqrt(stiffness)
-private const val EnterStiffness = 205f
+// M3 emphasized-decelerate: most of the travel lands in the first third,
+// near-stationary at the end, no overshoot. The close runs quicker than the
+// open, per M3 container-transform guidance.
+private val MorphEasing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
+private const val OpenDurationMs = 330
+private const val CloseDurationMs = 220
 
 /**
  * Fullscreen image pager: swipe horizontally between a tweet's photos (the
@@ -48,10 +58,15 @@ private const val EnterStiffness = 205f
  * preview bitmap ([previewName] keys Coil's memory cache) and swaps to the
  * 2048px original when it lands, so opening never flashes blank.
  *
- * A spring drives a container transform in both directions: the image grows
- * out of the tapped thumbnail's [originBounds] with a slight overshoot, and
- * a dismissal shrinks it back into those bounds (from wherever the drag left
- * it) instead of sliding offscreen.
+ * An emphasized-decelerate tween drives a true container transform in both
+ * directions. At progress
+ * 0 a page renders pixel-identically to its thumbnail — the image is scaled
+ * as the same center-crop and clipped to the thumbnail's rounded rect — and
+ * the clip, position, and content scale all interpolate to the letterboxed
+ * fullscreen fit. The crop rect and fit rect share the image's aspect ratio,
+ * so a single uniform scale carries the whole morph and no crossfade is
+ * needed. Dismissal runs the same transform back into the *current* page's
+ * own thumbnail, from wherever the drag left the image.
  *
  * Rendered by MainScreen above the scaffold — never inside a screen — so it
  * covers the header and bottom navigation like the video viewer.
@@ -61,7 +76,8 @@ fun ImageViewerScreen(
     images: List<MediaEntity>,
     initialIndex: Int,
     previewName: String,
-    originBounds: Rect,
+    originBounds: List<Rect>,
+    cornerRadius: Dp,
     onDismiss: () -> Unit
 ) {
     val pagerState = rememberPagerState(
@@ -74,14 +90,11 @@ fun ImageViewerScreen(
     // Backdrop fades as the image travels with the drag
     val dragAlpha = (1f - (abs(offsetY.value) / 1000f)).coerceIn(0f, 1f)
 
-    // 0 = at the thumbnail, 1 = fullscreen. The entrance overshoots past 1
-    // (springy); the exit runs the same transform back down to 0.
+    // 0 = at the thumbnail, 1 = fullscreen; the exit runs the same
+    // transform back down to 0
     val enter = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
-        enter.animateTo(
-            1f,
-            spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = EnterStiffness)
-        )
+        enter.animateTo(1f, tween(OpenDurationMs, easing = MorphEasing))
     }
 
     // Shrink back into the thumbnail from wherever the drag left the image:
@@ -91,21 +104,17 @@ fun ImageViewerScreen(
         dismissing = true
         scope.launch {
             val dragBack = launch {
-                offsetY.animateTo(
-                    0f,
-                    spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = EnterStiffness)
-                )
+                offsetY.animateTo(0f, tween(CloseDurationMs, easing = MorphEasing))
             }
-            enter.animateTo(
-                0f,
-                spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = EnterStiffness)
-            )
+            enter.animateTo(0f, tween(CloseDurationMs, easing = MorphEasing))
             dragBack.join()
             onDismiss()
         }
     }
 
     BackHandler { animateOutAndDismiss() }
+
+    val cornerRadiusPx = with(LocalDensity.current) { cornerRadius.toPx() }
 
     Box(
         modifier = Modifier
@@ -142,43 +151,78 @@ fun ImageViewerScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .offset { IntOffset(0, offsetY.value.roundToInt()) }
-                .graphicsLayer {
-                    val p = enter.value
-                    if (originBounds != Rect.Zero) {
-                        // Container transform: uniform scale + translation
-                        // from the thumbnail rect to (and past, on overshoot)
-                        // the centered fullscreen frame
-                        val start = minOf(
-                            originBounds.width / size.width,
-                            originBounds.height / size.height
-                        )
-                        val scale = start + (1f - start) * p
-                        scaleX = scale
-                        scaleY = scale
-                        translationX = (originBounds.center.x - size.width / 2f) * (1f - p)
-                        translationY = (originBounds.center.y - size.height / 2f) * (1f - p)
-                    } else {
-                        val scale = 0.9f + 0.1f * p
-                        scaleX = scale
-                        scaleY = scale
-                    }
-                    // Fully opaque by the halfway point, so the crossover from
-                    // the real thumbnail underneath is early and clean
-                    this.alpha = (p * 2f).coerceIn(0f, 1f)
-                }
         ) { page ->
             val media = images[page]
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(media.fullSizeUrl() ?: media.mediaUrlHttps)
-                    // Show the preview the user was just looking at, straight
-                    // from Coil's memory cache, while the original downloads
-                    .placeholderMemoryCacheKey(media.previewUrl(previewName))
-                    .build(),
-                contentDescription = "Full Screen Image",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Fit
-            )
+            val origin = originBounds.getOrElse(page) { Rect.Zero }
+            val aspect = media.displayAspectRatio()
+
+            Box(
+                // The clip morph lives outside the scaled layer, in screen
+                // coordinates: thumbnail rounded rect -> full screen
+                modifier = Modifier
+                    .fillMaxSize()
+                    .drawWithContent {
+                        val p = enter.value.coerceIn(0f, 1f)
+                        if (origin == Rect.Zero || p >= 1f) {
+                            drawContent()
+                        } else {
+                            val clip = lerpRect(origin, Rect(Offset.Zero, size), p)
+                            val radius = cornerRadiusPx * (1f - p)
+                            clipPath(
+                                Path().apply {
+                                    addRoundRect(RoundRect(clip, CornerRadius(radius, radius)))
+                                }
+                            ) { this@drawWithContent.drawContent() }
+                        }
+                    }
+            ) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(media.fullSizeUrl() ?: media.mediaUrlHttps)
+                        // Show the preview the user was just looking at, straight
+                        // from Coil's memory cache, while the original downloads
+                        .placeholderMemoryCacheKey(media.previewUrl(previewName))
+                        .build(),
+                    contentDescription = "Full Screen Image",
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            val p = enter.value
+                            if (origin != Rect.Zero) {
+                                // The fitted (final) rect and the thumbnail's
+                                // center-crop rect share the image's aspect
+                                // ratio, so one uniform scale interpolates the
+                                // content between them
+                                val fitWidth = minOf(size.width, size.height * aspect)
+                                val cropWidth = maxOf(origin.width, origin.height * aspect)
+                                val width = cropWidth + (fitWidth - cropWidth) * p
+                                val scale = width / fitWidth
+                                scaleX = scale
+                                scaleY = scale
+                                val centerX =
+                                    origin.center.x + (size.width / 2f - origin.center.x) * p
+                                val centerY =
+                                    origin.center.y + (size.height / 2f - origin.center.y) * p
+                                translationX = centerX - size.width / 2f
+                                translationY = centerY - size.height / 2f
+                            } else {
+                                // No known origin: centered scale + fade
+                                val scale = 0.9f + 0.1f * p
+                                scaleX = scale
+                                scaleY = scale
+                                this.alpha = (p * 2f).coerceIn(0f, 1f)
+                            }
+                        },
+                    contentScale = ContentScale.Fit
+                )
+            }
         }
     }
 }
+
+private fun lerpRect(from: Rect, to: Rect, t: Float): Rect = Rect(
+    from.left + (to.left - from.left) * t,
+    from.top + (to.top - from.top) * t,
+    from.right + (to.right - from.right) * t,
+    from.bottom + (to.bottom - from.bottom) * t
+)
